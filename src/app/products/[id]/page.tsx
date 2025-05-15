@@ -1,64 +1,20 @@
 
-"use client";
-
-import { useEffect, useState, Suspense } from 'react';
-import { useParams } from 'next/navigation';
+import { Suspense } from 'react';
 import Image from 'next/image';
 import { getProductById } from '@/lib/products';
 import type { Product } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { useCart } from '@/context/CartContext';
-import { ChevronLeft, PlusCircle, MinusCircle } from 'lucide-react';
+// useCart and quantity controls are client-side, so ProductDetailActions will be a client component
+// import { useCart } from '@/context/CartContext'; 
+import { ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+import ProductDetailActions from './ProductDetailActions'; // New client component
 
-function ProductDetailPageContent() {
-  const params = useParams();
-  const idParam = params.id as string;
-  const [product, setProduct] = useState<Product | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const { addToCart } = useCart();
-  const [quantity, setQuantity] = useState(1);
-
-
-  useEffect(() => {
-    if (idParam) {
-      const productId = parseInt(idParam, 10);
-      if (isNaN(productId)) {
-        setIsLoading(false);
-        setProduct(null); // Invalid ID
-        return;
-      }
-      const fetchProduct = async () => {
-        setIsLoading(true);
-        const fetchedProduct = await getProductById(productId);
-        setProduct(fetchedProduct || null);
-        setIsLoading(false);
-      };
-      fetchProduct();
-    }
-  }, [idParam]);
-
-  if (isLoading) {
-    return (
-      <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
-          <div>
-            <Skeleton className="w-full aspect-square rounded-lg" />
-          </div>
-          <div className="space-y-4">
-            <Skeleton className="h-10 w-3/4" />
-            <Skeleton className="h-6 w-1/4" />
-            <Skeleton className="h-20 w-full" />
-            <Skeleton className="h-6 w-1/2" />
-            <Skeleton className="h-12 w-full" />
-          </div>
-        </div>
-      </div>
-    );
-  }
+// This is the Server Component responsible for fetching data
+async function ProductDetailPageData({ productId }: { productId: number }) {
+  const product = await getProductById(productId);
 
   if (!product) {
     return (
@@ -91,74 +47,61 @@ function ProductDetailPageContent() {
           />
         </div>
         <div className="space-y-6">
-          <Badge variant="outline">{product.category}</Badge>
+          {product.category && <Badge variant="outline">{product.category}</Badge>}
           <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{product.name}</h1>
           <p className="text-3xl font-semibold text-primary">${product.price.toFixed(2)}</p>
           <p className="text-base text-muted-foreground leading-relaxed">{product.description || 'No description available.'}</p>
           
-          {product.stock <= 0 ? (
-             <p className="text-lg text-destructive font-semibold">Out of Stock</p>
-          ) : product.stock < 10 && (
-             <p className="text-lg text-accent-foreground/80 font-semibold">Only {product.stock} left in stock!</p>
-          )}
-
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                disabled={quantity <= 1}
-                aria-label="Decrease quantity"
-              >
-                <MinusCircle className="h-5 w-5" />
-              </Button>
-              <Input
-                type="number"
-                value={quantity}
-                onChange={(e) => {
-                    let val = parseInt(e.target.value);
-                    if (isNaN(val) || val < 1) val = 1;
-                    if (val > product.stock) val = product.stock;
-                    setQuantity(val);
-                }}
-                min="1"
-                max={product.stock}
-                className="h-10 w-16 text-center"
-                aria-label="Product quantity"
-                disabled={product.stock <=0}
-              />
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
-                disabled={quantity >= product.stock || product.stock <= 0}
-                aria-label="Increase quantity"
-              >
-                <PlusCircle className="h-5 w-5" />
-              </Button>
-            </div>
-            <Button 
-              size="lg" 
-              onClick={() => addToCart(product, quantity)} 
-              className="flex-grow bg-primary hover:bg-primary/90 text-primary-foreground"
-              disabled={product.stock <= 0}
-              aria-label={`Add ${product.name} to cart`}
-            >
-              <PlusCircle className="mr-2 h-5 w-5" /> Add to Cart
-            </Button>
-          </div>
+          {/* Client component for quantity, add to cart, stock info */}
+          <ProductDetailActions product={product} />
         </div>
       </div>
     </div>
   );
 }
 
+// Main page export remains a Server Component
+export default async function ProductDetailPage({ params }: { params: { id: string } }) {
+  const idParam = params.id;
+  const productId = parseInt(idParam, 10);
 
-export default function ProductDetailPage() {
+  if (isNaN(productId)) {
+    return (
+      <div className="container mx-auto px-4 py-12 text-center">
+        <h1 className="text-2xl font-semibold">Invalid Product ID</h1>
+        <p className="text-muted-foreground">The product ID in the URL is not valid.</p>
+        <Button asChild variant="link" className="mt-4">
+          <Link href="/">Go back to shopping</Link>
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <Suspense fallback={<div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">Loading product details...</div>}>
-      <ProductDetailPageContent />
+    <Suspense fallback={<ProductDetailSkeleton />}>
+      <ProductDetailPageData productId={productId} />
     </Suspense>
-  )
+  );
 }
+
+const ProductDetailSkeleton = () => (
+  <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
+    <Skeleton className="h-9 w-36 mb-6" /> {/* Back button skeleton */}
+    <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
+      <div>
+        <Skeleton className="w-full aspect-square rounded-lg" />
+      </div>
+      <div className="space-y-4">
+        <Skeleton className="h-6 w-24" /> {/* Badge skeleton */}
+        <Skeleton className="h-10 w-3/4" /> {/* Title skeleton */}
+        <Skeleton className="h-8 w-1/4" /> {/* Price skeleton */}
+        <Skeleton className="h-20 w-full" /> {/* Description skeleton */}
+        <Skeleton className="h-6 w-1/2" /> {/* Stock info skeleton */}
+        <div className="flex items-center space-x-4">
+            <Skeleton className="h-10 w-32" /> {/* Quantity controls skeleton */}
+            <Skeleton className="h-12 flex-grow" /> {/* Add to cart button skeleton */}
+        </div>
+      </div>
+    </div>
+  </div>
+);

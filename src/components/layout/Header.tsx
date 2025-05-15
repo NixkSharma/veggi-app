@@ -16,8 +16,9 @@ import {
 } from "@/components/ui/sheet";
 
 const Header = () => {
-  const { cartItems, getItemCount } = useCart(); // Destructure cartItems
+  const { cartItems } = useCart(); // getItemCount is derived client-side
   const [itemCount, setItemCount] = useState(0);
+  const [isClient, setIsClient] = useState(false); // For hydration fix
   const [searchTerm, setSearchTerm] = useState('');
   const router = useRouter();
   const pathname = usePathname();
@@ -25,35 +26,45 @@ const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    // Calculate item count directly from cartItems
-    const currentItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-    setItemCount(currentItemCount);
-  }, [cartItems]); // Depend directly on cartItems
+    setIsClient(true); // Set client to true after mount
+  }, []);
+
+  useEffect(() => {
+    // Calculate item count only on the client
+    if (isClient) {
+      const currentItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+      setItemCount(currentItemCount);
+    }
+  }, [cartItems, isClient]);
 
   useEffect(() => {
     // Update search term if navigating to home page with search query
+    const querySearchTerm = searchParams.get('q') || '';
     if (pathname === '/') {
-      setSearchTerm(searchParams.get('q') || '');
+      setSearchTerm(querySearchTerm);
+    } else {
+      // Clear search term if not on home, or keep if user wants persistent search
+      // For now, let's clear it when navigating away from home if it's not a search submission
+      if (!searchParams.has('q')) { // only clear if not actively searching to a new page
+         // setSearchTerm(''); // Or maintain for global search feel
+      }
     }
   }, [pathname, searchParams]);
 
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const targetPath = pathname === '/' ? '/' : '/'; // Always search on the homepage
-    const params = new URLSearchParams(searchParams.toString());
-
+    // Always search on the homepage (root)
+    const targetPath = '/';
+    const params = new URLSearchParams(); // Start with fresh params for search
+    
+    // Preserve other relevant query params if any, e.g. category, but typically search clears others
+    // For now, search just sets 'q'
     if (searchTerm.trim()) {
       params.set('q', searchTerm.trim());
-    } else {
-      params.delete('q');
     }
-    // If already on homepage, modify params. Otherwise, navigate with new params.
-    if (pathname === targetPath) {
-        router.push(`${targetPath}?${params.toString()}`);
-    } else {
-        router.push(`${targetPath}?${params.toString()}`);
-    }
+    // If on a different page, navigate to home. If on home, push new search.
+    router.push(`${targetPath}?${params.toString()}`);
 
     if (isMobileMenuOpen) {
       setIsMobileMenuOpen(false);
@@ -62,7 +73,7 @@ const Header = () => {
 
   const navLinks = [
     { href: '/', label: 'Home' },
-    { href: '/products', label: 'All Vegetables' },
+    { href: '/products', label: 'All Vegetables' }, // This page redirects to home, consider removing or making it a real page
     { href: '/about', label: 'About Us' },
     { href: '/contact', label: 'Contact' },
   ];
@@ -88,7 +99,6 @@ const Header = () => {
         </nav>
         
         <div className="flex items-center space-x-2 sm:space-x-4">
-          {/* Search bar always available but styled differently if not on home */}
            <form onSubmit={handleSearch} className="hidden sm:flex items-center relative">
               <Input
                 type="search"
@@ -105,7 +115,7 @@ const Header = () => {
           <Link href="/cart">
             <Button variant="ghost" size="icon" aria-label="View Cart" className="relative">
               <ShoppingCart className="h-5 w-5" />
-              {itemCount > 0 && (
+              {isClient && itemCount > 0 && ( // Only render badge on client if items exist
                 <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
                   {itemCount}
                 </span>

@@ -1,3 +1,4 @@
+
 import type { Product } from '@/lib/types';
 import prisma from './prisma';
 
@@ -18,8 +19,6 @@ const mapPrismaProductToAppProduct = (prismaProduct: any): Product => {
 };
 
 export const getProducts = async (searchTerm?: string, categoryName?: string): Promise<Product[]> => {
-  await new Promise(resolve => setTimeout(resolve, 50)); // Simulate small delay
-
   const whereClause: any = {};
 
   if (searchTerm) {
@@ -49,8 +48,6 @@ export const getProducts = async (searchTerm?: string, categoryName?: string): P
 };
 
 export const getProductById = async (id: number): Promise<Product | undefined> => {
-  await new Promise(resolve => setTimeout(resolve, 50)); // Simulate small delay
-  
   if (isNaN(id)) return undefined;
 
   const prismaProduct = await prisma.product.findUnique({
@@ -68,7 +65,6 @@ export const getProductById = async (id: number): Promise<Product | undefined> =
 };
 
 export const getCategories = async (): Promise<string[]> => {
-  await new Promise(resolve => setTimeout(resolve, 50)); // Simulate small delay
   const categories = await prisma.category.findMany({
     orderBy: {
       name: 'asc'
