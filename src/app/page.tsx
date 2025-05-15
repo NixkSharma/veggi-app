@@ -7,7 +7,7 @@ import { Suspense } from 'react';
 
 // HomePage is a Server Component by default (no 'use client' at the top of the file)
 export default async function HomePage({
-  searchParams: searchParamsProp,
+  searchParams: searchParamsProp, // Renamed to avoid conflict in this scope
 }: {
   searchParams?: { [key: string]: string | string[] | undefined };
 }) {
