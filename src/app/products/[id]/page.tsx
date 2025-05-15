@@ -61,8 +61,10 @@ async function ProductDetailPageData({ productId }: { productId: number }) {
 }
 
 // Main page export remains a Server Component
-export default async function ProductDetailPage({ params }: { params: { id: string } }) {
-  const idParam = params.id;
+export default async function ProductDetailPage({ params: paramsProp }: { params: { id: string } }) {
+  // Await paramsProp before accessing its properties
+  const resolvedParams = await paramsProp;
+  const idParam = resolvedParams.id;
   const productId = parseInt(idParam, 10);
 
   if (isNaN(productId)) {
