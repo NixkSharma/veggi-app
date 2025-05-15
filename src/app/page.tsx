@@ -1,7 +1,7 @@
 
 "use client"; // This "use client" is for HomeView, not the default export HomePage
 
-import ProductList from '@/components/ProductList';
+import ProductList, { ProductListSkeleton } from '@/components/ProductList'; // Import ProductListSkeleton
 import { getProducts, getCategories } from '@/lib/products';
 import type { Product } from '@/lib/types';
 import { useEffect, useState, Suspense } from 'react';
@@ -57,9 +57,16 @@ export default async function HomePage({
   
   const initialData = await PageDataFetcher({ searchTerm, category });
   
+  // Generate a key based on search term and category to force re-mount of HomeView
+  const homeViewKey = `${searchTerm}-${category}`;
+
   return (
-    <Suspense fallback={<div className="text-center py-10">Loading products...</div>}>
-      <HomeView initialProducts={initialData.products} initialCategories={initialData.categories} />
+    <Suspense fallback={<ProductListSkeleton />}> {/* Use ProductListSkeleton */}
+      <HomeView 
+        key={homeViewKey} // Add key here
+        initialProducts={initialData.products} 
+        initialCategories={initialData.categories} 
+      />
     </Suspense>
   );
 }
@@ -154,4 +161,3 @@ function HomeView({ initialProducts, initialCategories }: { initialProducts: Pro
   );
 }
 
-// Removed stray searchParamsProp declaration that was here
