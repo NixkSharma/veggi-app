@@ -1,15 +1,211 @@
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
 }
 
-// Enums
-enum Role {
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String        @id @default(uuid()) @db.Uuid
+  email         String        @unique
+  passwordHash  String        @map("password_hash")
+  role          UserRole
+  name          String
+  phone         String?
+  address       String?
+  status        UserStatus    @default(active)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  vendorProducts Product[]     @relation("VendorProducts")
+  carts          Cart[]
+  orders         Order[]       @relation("UserOrders")
+  vendorOrders   Order[]       @relation("VendorOrders")
+  payments       Payment[]
+  notifications  Notification[]
+  addresses      Address[]
+  inventoryLogs  InventoryLog[]
+
+  @@map("users")
+}
+
+model Category {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  imageUrl  String?   @map("image_url")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  products  Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id          Int       @id @default(autoincrement())
+  categoryId  Int?      @map("category_id")
+  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  name        String
+  description String?
+  price       Decimal   @db.Decimal(10, 2)
+  stock       Int       @default(0)
+  imageUrl    String?   @map("image_url")
+  dataAiHint  String?   // For placeholder image search keywords
+
+  vendorId    String?   @map("vendor_id") @db.Uuid // Foreign key
+  vendor      User?     @relation("VendorProducts", fields: [vendorId], references: [id], onDelete: SetNull)
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+  inventoryLogs InventoryLog[]
+
+  @@index([categoryId])
+  @@index([vendorId])
+  @@map("products")
+}
+
+model Cart {
+  id        Int      @id @default(autoincrement())
+  userId    String   @unique @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  items     CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id         Int      @id @default(autoincrement())
+  cartId     Int      @map("cart_id")
+  cart       Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId  Int      @map("product_id")
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity   Int
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+
+  @@unique([cartId, productId])
+  @@index([cartId])
+  @@map("cart_items")
+}
+
+model Order {
+  id              Int           @id @default(autoincrement())
+  userId          String?       @map("user_id") @db.Uuid
+  user            User?         @relation("UserOrders", fields: [userId], references: [id], onDelete: SetNull)
+  vendorId        String?       @map("vendor_id") @db.Uuid
+  vendor          User?         @relation("VendorOrders", fields: [vendorId], references: [id], onDelete: SetNull)
+  customerName    String        @map("customer_name")
+  customerAddress String        @map("customer_address")
+  total           Decimal       @db.Decimal(10, 2)
+  status          OrderStatus   @default(pending)
+  paymentStatus   PaymentStatus @default(pending) @map("payment_status")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  items           OrderItem[]
+  payment         Payment?
+
+  @@index([userId])
+  @@index([vendorId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        Int      @id @default(autoincrement())
+  orderId   Int      @map("order_id")
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId Int?     @map("product_id")
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  quantity  Int
+  price     Decimal  @db.Decimal(10, 2) // Price at the time of order
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model Payment {
+  id            Int           @id @default(autoincrement())
+  orderId       Int           @unique @map("order_id")
+  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  userId        String?       @map("user_id") @db.Uuid
+  user          User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  amount        Decimal       @db.Decimal(10, 2)
+  transactionId String?       @map("transaction_id")
+  status        PaymentStatus @default(pending)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  @@map("payments")
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  userId    String           @map("user_id") @db.Uuid
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  message   String
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("notifications")
+}
+
+model Address {
+  id           Int      @id @default(autoincrement())
+  userId       String   @map("user_id") @db.Uuid
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  addressLine  String   @map("address_line")
+  city         String
+  state        String
+  postalCode   String   @map("postal_code")
+  country      String
+  isDefault    Boolean  @default(false) @map("is_default")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+model Analytics {
+  id        Int           @id @default(autoincrement())
+  type      AnalyticsType
+  data      Json          @db.JsonB
+  date      DateTime      @db.Date // Changed from String to DateTime with @db.Date
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  @@index([date])
+  @@map("analytics")
+}
+
+model InventoryLog {
+  id             Int                @id @default(autoincrement())
+  productId      Int?               @map("product_id")
+  product        Product?           @relation(fields: [productId], references: [id], onDelete: SetNull)
+  vendorId       String?            @map("vendor_id") @db.Uuid
+  vendor         User?              @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  changeType     InventoryChangeType @map("change_type")
+  quantityChange Int                @map("quantity_change")
+  reason         String?
+  createdAt      DateTime           @default(now()) @map("created_at")
+
+  @@map("inventory_logs")
+}
+
+enum UserRole {
   customer
   vendor
   admin
@@ -41,211 +237,14 @@ enum NotificationType {
   system_message
 }
 
-enum ChangeType {
+enum AnalyticsType {
+  order
+  user
+  product
+}
+
+enum InventoryChangeType {
   add
   remove
   update
-}
-
-// Models
-model User {
-  id            String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  email         String        @unique
-  passwordHash  String        @map("password_hash")
-  role          Role
-  name          String
-  phone         String?
-  address       String?
-  status        UserStatus    @default(active)
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
-
-  products      Product[]     @relation("VendorProducts")
-  carts         Cart[]        // Relation for carts owned by this user
-  orders        Order[]       @relation("UserOrders")
-  vendorOrders  Order[]       @relation("VendorOrders")
-  payments      Payment[]
-  notifications Notification[]
-  addresses     Address[]
-  inventoryLogs InventoryLog[]
-
-  @@map("users")
-}
-
-model Category {
-  id        Int       @id @default(autoincrement())
-  name      String    @unique
-  imageUrl  String?   @map("image_url")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-
-  products  Product[]
-
-  @@map("categories")
-}
-
-model Product {
-  id            Int       @id @default(autoincrement())
-  categoryId    Int?      @map("category_id")
-  name          String
-  description   String?
-  price         Decimal   @db.Decimal(10, 2)
-  stock         Int       @default(0)
-  imageUrl      String?   @map("image_url")
-  dataAiHint    String?   // For placeholder image search keywords
-
-  vendorId      String?   @map("vendor_id") @db.Uuid // Ensures this FK is UUID
-  vendor        User?     @relation("VendorProducts", fields: [vendorId], references: [id], onDelete: SetNull)
-
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
-
-  category      Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  cartItems     CartItem[]
-  orderItems    OrderItem[]
-  inventoryLogs InventoryLog[]
-
-  @@index([categoryId])
-  @@index([vendorId])
-  @@map("products")
-}
-
-model Cart {
-  id        Int      @id @default(autoincrement())
-  userId    String   @unique @map("user_id") @db.Uuid // Ensures this FK is UUID
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items     CartItem[]
-
-  @@map("carts")
-}
-
-model CartItem {
-  id         Int      @id @default(autoincrement())
-  cartId     Int      @map("cart_id")
-  productId  Int      @map("product_id")
-  quantity   Int
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at") // Added missing @updatedAt
-
-  cart       Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@unique([cartId, productId])
-  @@index([cartId]) // Index for cart_id
-  @@map("cart_items")
-}
-
-model Order {
-  id              Int           @id @default(autoincrement())
-  userId          String?       @map("user_id") @db.Uuid // Customer, ensures this FK is UUID
-  vendorId        String?       @map("vendor_id") @db.Uuid // Assigned vendor, ensures this FK is UUID
-  customerName    String        @map("customer_name")
-  customerAddress String        @map("customer_address")
-  total           Decimal       @db.Decimal(10, 2)
-  status          OrderStatus   @default(pending)
-  paymentStatus   PaymentStatus @default(pending) @map("payment_status")
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
-
-  user            User?         @relation("UserOrders", fields: [userId], references: [id], onDelete: SetNull)
-  vendor          User?         @relation("VendorOrders", fields: [vendorId], references: [id], onDelete: SetNull)
-  items           OrderItem[]
-  payment         Payment?      // Relation for payment associated with this order
-
-  @@index([userId])
-  @@index([vendorId])
-  @@map("orders")
-}
-
-model OrderItem {
-  id        Int      @id @default(autoincrement())
-  orderId   Int      @map("order_id")
-  productId Int?     @map("product_id")
-  quantity  Int
-  price     Decimal  @db.Decimal(10, 2)
-  createdAt DateTime @default(now()) @map("created_at")
-
-  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
-
-  @@index([orderId]) // Index for order_id
-  @@map("order_items")
-}
-
-model Payment {
-  id            Int           @id @default(autoincrement())
-  orderId       Int           @unique @map("order_id")
-  userId        String?       @map("user_id") @db.Uuid // Ensures this FK is UUID
-  amount        Decimal       @db.Decimal(10, 2)
-  transactionId String?       @map("transaction_id")
-  status        PaymentStatus @default(pending)
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
-
-  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  user          User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
-  
-  @@index([orderId], name: "idx_payments_order_id") // Explicit index name matching SQL
-  @@map("payments")
-}
-
-model Notification {
-  id        Int              @id @default(autoincrement())
-  userId    String           @map("user_id") @db.Uuid // Ensures this FK is UUID
-  type      NotificationType
-  message   String
-  isRead    Boolean          @default(false) @map("is_read")
-  createdAt DateTime         @default(now()) @map("created_at")
-
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@map("notifications")
-}
-
-model Address {
-  id           Int      @id @default(autoincrement())
-  userId       String   @map("user_id") @db.Uuid // Ensures this FK is UUID
-  addressLine  String   @map("address_line")
-  city         String
-  state        String
-  postalCode   String   @map("postal_code")
-  country      String
-  isDefault    Boolean  @default(false) @map("is_default")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@map("addresses")
-}
-
-model Analytics {
-  id        Int      @id @default(autoincrement())
-  type      String   // Per SQL, no specific check constraint on values like 'order', 'user', 'product'
-  data      Json     // Stores JSONB
-  date      DateTime @db.Date // Stores DATE
-  createdAt DateTime @default(now()) @map("created_at")
-
-  @@index([date]) // Index for date
-  @@map("analytics")
-}
-
-model InventoryLog {
-  id             Int        @id @default(autoincrement())
-  productId      Int?       @map("product_id")
-  vendorId       String?    @map("vendor_id") @db.Uuid // Ensures this FK is UUID
-  changeType     ChangeType @map("change_type")
-  quantityChange Int        @map("quantity_change")
-  reason         String?
-  createdAt      DateTime   @default(now()) @map("created_at")
-
-  product        Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
-  vendor         User?      @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-
-  @@map("inventory_logs")
 }
