@@ -1,11 +1,8 @@
 
-"use client"; // This "use client" is for HomeView, not the default export HomePage
-
-import ProductList, { ProductListSkeleton } from '@/components/ProductList'; // Import ProductListSkeleton
+import ProductList, { ProductListSkeleton } from '@/components/ProductList';
 import { getProducts, getCategories } from '@/lib/products';
 import type { Product } from '@/lib/types';
-import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search as SearchIcon } from 'lucide-react';
@@ -16,22 +13,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import React, { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
-// This internal component will fetch data on the server.
-async function PageDataFetcher({ searchTerm, category }: { searchTerm: string, category: string }) {
-  const [products, categories] = await Promise.all([
-    getProducts(searchTerm, category),
-    getCategories()
-  ]);
-  return { products, categories };
-}
-
-// Server component wrapper for initial data load
+// HomePage is a Server Component by default (no 'use client' at the top of the file)
 export default async function HomePage({
-  searchParams: searchParamsProp,
+  searchParams: searchParamsProp, // Renamed to avoid conflict with hook
 }: {
   searchParams?: { [key: string]: string | string[] | undefined };
 }) {
+  // Await searchParams if Next.js requires it for async Server Components
   const resolvedSearchParams = searchParamsProp ? await searchParamsProp : {};
 
   const qParam = resolvedSearchParams?.q;
@@ -55,40 +46,54 @@ export default async function HomePage({
     category = 'All';
   }
   
-  const initialData = await PageDataFetcher({ searchTerm, category });
+  // Fetch initial data directly in the Server Component
+  const [initialProducts, initialCategories] = await Promise.all([
+    getProducts(searchTerm, category),
+    getCategories()
+  ]);
   
-  // Generate a key based on search term and category to force re-mount of HomeView
   const homeViewKey = `${searchTerm}-${category}`;
 
   return (
-    <Suspense fallback={<ProductListSkeleton />}> {/* Use ProductListSkeleton */}
+    <Suspense fallback={<ProductListSkeleton />}>
       <HomeView 
-        key={homeViewKey} // Add key here
-        initialProducts={initialData.products} 
-        initialCategories={initialData.categories} 
+        key={homeViewKey}
+        initialProducts={initialProducts} 
+        initialCategories={initialCategories}
+        initialSearchTerm={searchTerm} // Pass initial search term for controlled input
+        initialCategory={category} // Pass initial category for controlled select
       />
     </Suspense>
   );
 }
 
-
-// Client component to handle interactions
-function HomeView({ initialProducts, initialCategories }: { initialProducts: Product[], initialCategories: string[]}) {
+// HomeView is a Client Component
+// Add 'use client' directive specifically for this component
+'use client';
+function HomeView({ 
+  initialProducts, 
+  initialCategories,
+  initialSearchTerm,
+  initialCategory
+}: { 
+  initialProducts: Product[], 
+  initialCategories: string[],
+  initialSearchTerm: string,
+  initialCategory: string
+}) {
   const router = useRouter();
-  const searchParamsHook = useSearchParams(); 
+  const searchParamsHook = useSearchParams(); // For reading current URL state
 
-  const initialSearchTermFromUrl = searchParamsHook.get('q') || '';
-  
-  const [currentSearchTerm, setCurrentSearchTerm] = useState(initialSearchTermFromUrl);
-  
-  const products = initialProducts; 
-  const categories = initialCategories;
+  // State for controlled inputs, initialized from server-passed props
+  const [currentSearchTerm, setCurrentSearchTerm] = useState(initialSearchTerm);
+  const [currentCategory, setCurrentCategory] = useState(initialCategory);
 
-
+  // Effect to update controlled input if URL changes externally (e.g. browser back/forward)
   useEffect(() => {
     setCurrentSearchTerm(searchParamsHook.get('q') || '');
+    setCurrentCategory(searchParamsHook.get('category') || 'All');
   }, [searchParamsHook]);
-
+  
   const handleSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const params = new URLSearchParams(searchParamsHook.toString());
@@ -97,13 +102,15 @@ function HomeView({ initialProducts, initialCategories }: { initialProducts: Pro
     } else {
       params.delete('q');
     }
+    // Navigate, which will cause HomePage (Server Component) to re-render
     router.push(`/?${params.toString()}`);
   };
 
-  const handleCategoryChange = (newCategory: string) => {
+  const handleCategoryChange = (newCategoryValue: string) => {
+    setCurrentCategory(newCategoryValue); // Update local state for controlled component
     const params = new URLSearchParams(searchParamsHook.toString());
-    if (newCategory && newCategory !== 'All') {
-      params.set('category', newCategory);
+    if (newCategoryValue && newCategoryValue !== 'All') {
+      params.set('category', newCategoryValue);
     } else {
       params.delete('category'); 
     }
@@ -142,12 +149,12 @@ function HomeView({ initialProducts, initialCategories }: { initialProducts: Pro
           
           <div>
             <label htmlFor="category-select" className="block text-sm font-medium text-foreground mb-1">Filter by Category</label>
-            <Select value={searchParamsHook.get('category') || 'All'} onValueChange={handleCategoryChange}>
+            <Select value={currentCategory} onValueChange={handleCategoryChange}>
               <SelectTrigger id="category-select" className="w-full h-10">
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
-                {categories.map(cat => (
+                {initialCategories.map(cat => (
                   <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                 ))}
               </SelectContent>
@@ -156,8 +163,8 @@ function HomeView({ initialProducts, initialCategories }: { initialProducts: Pro
         </div>
       </div>
       
-      <ProductList products={products} isLoading={false} /> 
+      {/* Products are passed from HomePage server component */}
+      <ProductList products={initialProducts} isLoading={false} /> 
     </div>
   );
 }
-
