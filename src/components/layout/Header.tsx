@@ -16,21 +16,22 @@ import {
 } from "@/components/ui/sheet";
 
 const Header = () => {
-  const { cartItems } = useCart(); // getItemCount is derived client-side
+  const { cartItems } = useCart();
   const [itemCount, setItemCount] = useState(0);
-  const [isClient, setIsClient] = useState(false); // For hydration fix
-  const [searchTerm, setSearchTerm] = useState('');
+  const [isClient, setIsClient] = useState(false);
+  
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const currentSearchParams = useSearchParams(); // Hook to get current search params
+
+  const [searchTerm, setSearchTerm] = useState(currentSearchParams.get('q') || '');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    setIsClient(true); // Set client to true after mount
+    setIsClient(true); 
   }, []);
 
   useEffect(() => {
-    // Calculate item count only on the client
     if (isClient) {
       const currentItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
       setItemCount(currentItemCount);
@@ -38,32 +39,24 @@ const Header = () => {
   }, [cartItems, isClient]);
 
   useEffect(() => {
-    // Update search term if navigating to home page with search query
-    const querySearchTerm = searchParams.get('q') || '';
-    if (pathname === '/') {
-      setSearchTerm(querySearchTerm);
-    } else {
-      // Clear search term if not on home, or keep if user wants persistent search
-      // For now, let's clear it when navigating away from home if it's not a search submission
-      if (!searchParams.has('q')) { // only clear if not actively searching to a new page
-         // setSearchTerm(''); // Or maintain for global search feel
-      }
-    }
-  }, [pathname, searchParams]);
+    // Update search term input if q param changes in URL
+    setSearchTerm(currentSearchParams.get('q') || '');
+  }, [currentSearchParams]);
 
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Always search on the homepage (root)
-    const targetPath = '/';
-    const params = new URLSearchParams(); // Start with fresh params for search
+    const targetPath = '/'; // Always search on the homepage
     
-    // Preserve other relevant query params if any, e.g. category, but typically search clears others
-    // For now, search just sets 'q'
+    // Preserve existing query parameters (like category)
+    const params = new URLSearchParams(currentSearchParams.toString());
+    
     if (searchTerm.trim()) {
       params.set('q', searchTerm.trim());
+    } else {
+      params.delete('q'); // Remove 'q' if search term is empty
     }
-    // If on a different page, navigate to home. If on home, push new search.
+    
     router.push(`${targetPath}?${params.toString()}`);
 
     if (isMobileMenuOpen) {
@@ -73,7 +66,7 @@ const Header = () => {
 
   const navLinks = [
     { href: '/', label: 'Home' },
-    { href: '/products', label: 'All Vegetables' }, // This page redirects to home, consider removing or making it a real page
+    // { href: '/products', label: 'All Vegetables' }, // This page redirects to home
     { href: '/about', label: 'About Us' },
     { href: '/contact', label: 'Contact' },
   ];
@@ -107,7 +100,7 @@ const Header = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="h-9 pr-10 w-40 lg:w-64"
               />
-              <Button type="submit" variant="ghost" size="icon" className="absolute right-0 h-9 w-9">
+              <Button type="submit" variant="ghost" size="icon" className="absolute right-0 h-9 w-9" aria-label="Search">
                 <Search className="h-4 w-4" />
               </Button>
             </form>
@@ -115,7 +108,7 @@ const Header = () => {
           <Link href="/cart">
             <Button variant="ghost" size="icon" aria-label="View Cart" className="relative">
               <ShoppingCart className="h-5 w-5" />
-              {isClient && itemCount > 0 && ( // Only render badge on client if items exist
+              {isClient && itemCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
                   {itemCount}
                 </span>
@@ -145,7 +138,7 @@ const Header = () => {
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="h-9 pr-10 w-full"
                     />
-                    <Button type="submit" variant="ghost" size="icon" className="absolute right-0 h-9 w-9">
+                    <Button type="submit" variant="ghost" size="icon" className="absolute right-0 h-9 w-9" aria-label="Search">
                       <Search className="h-4 w-4" />
                     </Button>
                   </form>
