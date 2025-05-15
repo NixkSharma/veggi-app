@@ -8,8 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 interface CartContextType {
   cartItems: CartItem[];
   addToCart: (product: Product, quantity?: number) => void;
-  removeFromCart: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  removeFromCart: (productId: number) => void; // Changed productId to number
+  updateQuantity: (productId: number, quantity: number) => void; // Changed productId to number
   clearCart: () => void;
   getCartTotal: () => number;
   getItemCount: () => number;
@@ -26,12 +26,30 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const storedCart = localStorage.getItem(CART_STORAGE_KEY);
     if (storedCart) {
-      setCartItems(JSON.parse(storedCart));
+      try {
+        const parsedCart = JSON.parse(storedCart);
+        // Ensure product IDs are numbers if migrating from old string IDs in localStorage
+        const sanitizedCart = parsedCart.map((item: CartItem) => ({
+          ...item,
+          product: {
+            ...item.product,
+            id: typeof item.product.id === 'string' ? parseInt(item.product.id, 10) : item.product.id,
+          }
+        })).filter((item: CartItem) => !isNaN(item.product.id));
+        setCartItems(sanitizedCart);
+      } catch (error) {
+        console.error("Failed to parse cart from localStorage", error);
+        localStorage.removeItem(CART_STORAGE_KEY); // Clear corrupted cart
+      }
     }
   }, []);
 
   useEffect(() => {
-    if (cartItems.length > 0 || localStorage.getItem(CART_STORAGE_KEY)) { // only update if cart was initialized or has items
+    // Only update localStorage if cartItems has been initialized from localStorage or has items.
+    // This prevents overwriting a potentially valid stored cart with an empty one on initial load
+    // if localStorage access is slow.
+    const storedCart = localStorage.getItem(CART_STORAGE_KEY);
+    if (cartItems.length > 0 || storedCart) { 
         localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
     }
   }, [cartItems]);
@@ -74,7 +92,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
   };
 
-  const removeFromCart = (productId: string) => {
+  const removeFromCart = (productId: number) => { // Changed productId to number
     setCartItems(prevItems => {
       const itemToRemove = prevItems.find(item => item.product.id === productId);
       if (itemToRemove) {
@@ -87,12 +105,20 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
   };
 
-  const updateQuantity = (productId: string, quantity: number) => {
+  const updateQuantity = (productId: number, quantity: number) => { // Changed productId to number
     setCartItems(prevItems => {
       const productInCart = prevItems.find(item => item.product.id === productId)?.product;
       if (!productInCart) return prevItems;
 
       if (quantity <= 0) {
+        // If quantity is 0 or less, remove the item
+        const itemToRemove = prevItems.find(item => item.product.id === productId);
+        if (itemToRemove) {
+            toast({
+                title: "Item removed",
+                description: `${itemToRemove.product.name} has been removed from your cart.`,
+            });
+        }
         return prevItems.filter(item => item.product.id !== productId);
       }
       if (quantity > productInCart.stock) {
@@ -135,12 +161,13 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 
   if (!isClient) {
+    // Provide a default, non-functional context for SSR or pre-hydration
     return <CartContext.Provider value={{
       cartItems: [],
-      addToCart: () => {},
-      removeFromCart: () => {},
-      updateQuantity: () => {},
-      clearCart: () => {},
+      addToCart: () => { console.warn("addToCart called on server or before hydration"); },
+      removeFromCart: () => { console.warn("removeFromCart called on server or before hydration"); },
+      updateQuantity: () => { console.warn("updateQuantity called on server or before hydration"); },
+      clearCart: () => { console.warn("clearCart called on server or before hydration"); },
       getCartTotal: () => 0,
       getItemCount: () => 0,
     }}>{children}</CartContext.Provider>;

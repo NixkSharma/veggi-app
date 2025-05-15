@@ -1,96 +1,78 @@
 import type { Product } from '@/lib/types';
+import prisma from './prisma';
 
-const mockProducts: Product[] = [
-  {
-    id: '1',
-    name: 'Organic Broccoli',
-    description: 'Fresh, locally sourced organic broccoli crowns.',
-    price: 2.99,
-    imageUrl: 'https://placehold.co/600x400.png',
-    dataAiHint: 'broccoli vegetable',
-    category: 'Vegetables',
-    stock: 50,
-  },
-  {
-    id: '2',
-    name: 'Crisp Carrots',
-    description: 'Sweet and crunchy carrots, perfect for snacking or cooking.',
-    price: 1.49,
-    imageUrl: 'https://placehold.co/600x400.png',
-    dataAiHint: 'carrots vegetable',
-    category: 'Vegetables',
-    stock: 100,
-  },
-  {
-    id: '3',
-    name: 'Spinach Bunch',
-    description: 'Nutrient-rich spinach leaves, great for salads and smoothies.',
-    price: 2.29,
-    imageUrl: 'https://placehold.co/600x400.png',
-    dataAiHint: 'spinach greens',
-    category: 'Leafy Greens',
-    stock: 30,
-  },
-  {
-    id: '4',
-    name: 'Ripe Tomatoes',
-    description: 'Juicy vine-ripened tomatoes, bursting with flavor.',
-    price: 3.49,
-    imageUrl: 'https://placehold.co/600x400.png',
-    dataAiHint: 'tomatoes vegetable',
-    category: 'Fruits (Culinary Vegetables)',
-    stock: 60,
-  },
-  {
-    id: '5',
-    name: 'Bell Peppers (Assorted)',
-    description: 'Colorful mix of red, yellow, and green bell peppers.',
-    price: 4.99,
-    imageUrl: 'https://placehold.co/600x400.png',
-    dataAiHint: 'bell peppers',
-    category: 'Vegetables',
-    stock: 40,
-  },
-  {
-    id: '6',
-    name: 'Fresh Garlic',
-    description: 'Aromatic garlic bulbs for enhancing your dishes.',
-    price: 0.99,
-    imageUrl: 'https://placehold.co/600x400.png',
-    dataAiHint: 'garlic spice',
-    category: 'Aromatics',
-    stock: 80,
-  },
-];
+const DEFAULT_PLACEHOLDER_IMAGE = 'https://placehold.co/600x400.png';
 
-export const getProducts = async (searchTerm?: string, category?: string): Promise<Product[]> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  let filteredProducts = mockProducts;
-
-  if (searchTerm) {
-    filteredProducts = filteredProducts.filter(product =>
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.description.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }
-
-  if (category && category !== "All") {
-    filteredProducts = filteredProducts.filter(product => product.category === category);
-  }
-
-  return filteredProducts;
+// Helper function to map Prisma Product to our app's Product type
+const mapPrismaProductToAppProduct = (prismaProduct: any): Product => {
+  return {
+    id: prismaProduct.id, // Prisma ID is Int
+    name: prismaProduct.name,
+    description: prismaProduct.description,
+    price: prismaProduct.price.toNumber(), // Convert Decimal to number
+    imageUrl: prismaProduct.imageUrl || DEFAULT_PLACEHOLDER_IMAGE,
+    category: prismaProduct.category?.name || 'Uncategorized', // Get category name
+    stock: prismaProduct.stock,
+    dataAiHint: prismaProduct.dataAiHint || prismaProduct.name.toLowerCase().split(' ').slice(0,2).join(' ') || 'vegetable',
+  };
 };
 
-export const getProductById = async (id: string): Promise<Product | undefined> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 300));
-  return mockProducts.find(product => product.id === id);
+export const getProducts = async (searchTerm?: string, categoryName?: string): Promise<Product[]> => {
+  await new Promise(resolve => setTimeout(resolve, 50)); // Simulate small delay
+
+  const whereClause: any = {};
+
+  if (searchTerm) {
+    whereClause.OR = [
+      { name: { contains: searchTerm, mode: 'insensitive' } },
+      { description: { contains: searchTerm, mode: 'insensitive' } },
+    ];
+  }
+
+  if (categoryName && categoryName !== "All") {
+    whereClause.category = {
+      name: categoryName,
+    };
+  }
+
+  const prismaProducts = await prisma.product.findMany({
+    where: whereClause,
+    include: {
+      category: true, // Include category data to get the name
+    },
+    orderBy: {
+      name: 'asc',
+    }
+  });
+
+  return prismaProducts.map(mapPrismaProductToAppProduct);
+};
+
+export const getProductById = async (id: number): Promise<Product | undefined> => {
+  await new Promise(resolve => setTimeout(resolve, 50)); // Simulate small delay
+  
+  if (isNaN(id)) return undefined;
+
+  const prismaProduct = await prisma.product.findUnique({
+    where: { id },
+    include: {
+      category: true,
+    },
+  });
+
+  if (!prismaProduct) {
+    return undefined;
+  }
+
+  return mapPrismaProductToAppProduct(prismaProduct);
 };
 
 export const getCategories = async (): Promise<string[]> => {
-  await new Promise(resolve => setTimeout(resolve, 100));
-  const categories = new Set(mockProducts.map(p => p.category));
-  return ["All", ...Array.from(categories)];
-}
+  await new Promise(resolve => setTimeout(resolve, 50)); // Simulate small delay
+  const categories = await prisma.category.findMany({
+    orderBy: {
+      name: 'asc'
+    }
+  });
+  return ["All", ...categories.map(c => c.name)];
+};

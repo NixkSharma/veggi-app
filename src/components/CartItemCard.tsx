@@ -25,7 +25,7 @@ const CartItemCard: React.FC<CartItemCardProps> = ({ item }) => {
       <Link href={`/products/${item.product.id}`} className="flex-shrink-0">
         <div className="relative h-20 w-20 overflow-hidden rounded-md sm:h-24 sm:w-24">
           <Image
-            src={item.product.imageUrl}
+            src={item.product.imageUrl || 'https://placehold.co/100x100.png'}
             alt={item.product.name}
             fill
             sizes="100px"
@@ -57,8 +57,11 @@ const CartItemCard: React.FC<CartItemCardProps> = ({ item }) => {
           <Input
             type="number"
             value={item.quantity}
-            onChange={(e) => handleQuantityChange(parseInt(e.target.value, 10))}
-            onBlur={(e) => { // Ensure quantity is at least 1
+            onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                 if (!isNaN(val)) handleQuantityChange(val);
+            }}
+            onBlur={(e) => { 
                 const val = parseInt(e.target.value,10);
                 if(isNaN(val) || val < 1) handleQuantityChange(1);
             }}

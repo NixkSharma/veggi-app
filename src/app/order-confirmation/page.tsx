@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { CheckCircle, Package } from 'lucide-react';
-import type { CartItem } from '@/lib/types'; // Assuming AddressFormData is also in types or defined here
+import type { CartItem } from '@/lib/types'; 
 import Image from 'next/image';
 
 interface AddressFormData {
@@ -25,7 +25,7 @@ interface Order {
   id: string;
   timestamp: string;
   deliveryDetails: AddressFormData;
-  items: CartItem[];
+  items: CartItem[]; // Uses the updated CartItem which uses Product with id: number
   totalAmount: number;
   status: string;
 }
@@ -38,9 +38,30 @@ function OrderConfirmationContent() {
 
   useEffect(() => {
     if (orderId) {
-      const storedOrders = JSON.parse(localStorage.getItem('veggieDashOrders') || '[]');
-      const currentOrder = storedOrders.find((o: Order) => o.id === orderId);
-      setOrder(currentOrder || null);
+      const storedOrdersRaw = localStorage.getItem('veggieDashOrders');
+      if (storedOrdersRaw) {
+        try {
+          const storedOrders = JSON.parse(storedOrdersRaw);
+          let currentOrder = storedOrders.find((o: Order) => o.id === orderId);
+          
+          // Attempt to sanitize product IDs in items if they are strings
+          if (currentOrder && currentOrder.items) {
+            currentOrder.items = currentOrder.items.map((item: CartItem) => ({
+              ...item,
+              product: {
+                ...item.product,
+                id: typeof item.product.id === 'string' ? parseInt(item.product.id, 10) : item.product.id,
+              }
+            })).filter((item: CartItem) => !isNaN(item.product.id));
+          }
+          setOrder(currentOrder || null);
+        } catch (error) {
+          console.error("Error parsing orders from localStorage:", error);
+          setOrder(null);
+        }
+      } else {
+        setOrder(null);
+      }
     }
     setIsLoading(false);
   }, [orderId]);
@@ -80,7 +101,7 @@ function OrderConfirmationContent() {
                   <div className="flex items-center space-x-3">
                     <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded">
                        <Image 
-                        src={item.product.imageUrl} 
+                        src={item.product.imageUrl || 'https://placehold.co/50x50.png'} 
                         alt={item.product.name} 
                         fill 
                         sizes="50px" 
@@ -136,4 +157,3 @@ export default function OrderConfirmationPage() {
     </Suspense>
   )
 }
-

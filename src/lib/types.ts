@@ -1,12 +1,13 @@
+
 export type Product = {
-  id: string;
+  id: number; // Changed from string to number to match Prisma's Int type for SERIAL
   name: string;
-  description: string;
-  price: number;
-  imageUrl: string;
-  category: string;
+  description: string | null; // Can be null from DB
+  price: number; // Will be converted from Decimal
+  imageUrl: string | null; // Can be null from DB
+  category: string; // Will be the category name
   stock: number;
-  dataAiHint?: string; // For placeholder image search keywords
+  dataAiHint?: string; // For placeholder image search keywords, remains optional
 };
 
 export type CartItem = {

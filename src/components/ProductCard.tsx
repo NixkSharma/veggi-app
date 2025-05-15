@@ -6,7 +6,7 @@ import type { Product } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useCart } from '@/context/CartContext';
-import { ShoppingCart, PlusCircle } from 'lucide-react';
+import { PlusCircle } from 'lucide-react'; // Removed ShoppingCart as PlusCircle is used
 import Link from 'next/link';
 
 interface ProductCardProps {
@@ -22,7 +22,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         <CardHeader className="p-0">
           <div className="aspect-[4/3] relative w-full overflow-hidden">
             <Image
-              src={product.imageUrl}
+              src={product.imageUrl || 'https://placehold.co/600x400.png'}
               alt={product.name}
               fill
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -39,7 +39,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           </CardTitle>
         </Link>
         <CardDescription className="mt-1 text-sm text-muted-foreground h-10 overflow-hidden">
-          {product.description}
+          {product.description || 'No description available.'}
         </CardDescription>
         <p className="mt-2 text-lg font-bold text-primary">
           ${product.price.toFixed(2)}

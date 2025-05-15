@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 
 function ProductDetailPageContent() {
   const params = useParams();
-  const id = params.id as string;
+  const idParam = params.id as string;
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { addToCart } = useCart();
@@ -24,16 +24,22 @@ function ProductDetailPageContent() {
 
 
   useEffect(() => {
-    if (id) {
+    if (idParam) {
+      const productId = parseInt(idParam, 10);
+      if (isNaN(productId)) {
+        setIsLoading(false);
+        setProduct(null); // Invalid ID
+        return;
+      }
       const fetchProduct = async () => {
         setIsLoading(true);
-        const fetchedProduct = await getProductById(id);
+        const fetchedProduct = await getProductById(productId);
         setProduct(fetchedProduct || null);
         setIsLoading(false);
       };
       fetchProduct();
     }
-  }, [id]);
+  }, [idParam]);
 
   if (isLoading) {
     return (
@@ -75,7 +81,7 @@ function ProductDetailPageContent() {
       <div className="grid md:grid-cols-2 gap-8 lg:gap-12 items-start">
         <div className="aspect-square relative w-full overflow-hidden rounded-lg shadow-lg bg-card">
           <Image
-            src={product.imageUrl}
+            src={product.imageUrl || 'https://placehold.co/600x400.png'}
             alt={product.name}
             fill
             sizes="(max-width: 768px) 100vw, 50vw"
@@ -88,7 +94,7 @@ function ProductDetailPageContent() {
           <Badge variant="outline">{product.category}</Badge>
           <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{product.name}</h1>
           <p className="text-3xl font-semibold text-primary">${product.price.toFixed(2)}</p>
-          <p className="text-base text-muted-foreground leading-relaxed">{product.description}</p>
+          <p className="text-base text-muted-foreground leading-relaxed">{product.description || 'No description available.'}</p>
           
           {product.stock <= 0 ? (
              <p className="text-lg text-destructive font-semibold">Out of Stock</p>

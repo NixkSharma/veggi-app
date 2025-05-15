@@ -49,7 +49,7 @@ export default function CheckoutPage() {
                   <div className="flex items-center space-x-3">
                     <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded">
                       <Image 
-                        src={item.product.imageUrl} 
+                        src={item.product.imageUrl || 'https://placehold.co/50x50.png'} 
                         alt={item.product.name} 
                         fill 
                         sizes="50px" 
