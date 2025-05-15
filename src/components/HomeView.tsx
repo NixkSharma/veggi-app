@@ -7,7 +7,7 @@ import type { Product } from '@/lib/types';
 import ProductList from '@/components/ProductList';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search as SearchIcon } from 'lucide-react';
+import { Search as SearchIcon, XCircle } from 'lucide-react'; // Added XCircle
 import {
   Select,
   SelectContent,
@@ -65,6 +65,13 @@ export default function HomeView({
     }
     router.push(`/?${params.toString()}`);
   };
+
+  const handleClearSearch = () => {
+    setCurrentSearchTerm(''); // Clear the input field state
+    const params = new URLSearchParams(searchParamsHook.toString());
+    params.delete('q'); // Remove only the search query
+    router.push(`/?${params.toString()}`);
+  };
   
   return (
     <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
@@ -110,6 +117,17 @@ export default function HomeView({
             </Select>
           </div>
         </div>
+        {currentSearchTerm.trim() && (
+          <div className="mt-4 flex justify-start">
+            <Button
+              variant="outline"
+              onClick={handleClearSearch}
+              aria-label="Clear search term"
+            >
+              <XCircle className="mr-2 h-4 w-4" /> Clear Search
+            </Button>
+          </div>
+        )}
       </div>
       
       {/* Products are passed from HomePage server component */}
