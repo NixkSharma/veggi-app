@@ -49,6 +49,9 @@ const Header = () => {
     } else {
       router.push(`/?q=${encodeURIComponent(searchTerm.trim())}`);
     }
+    if (isMobileMenuOpen) {
+      setIsMobileMenuOpen(false);
+    }
   };
 
   const navLinks = [
@@ -95,10 +98,10 @@ const Header = () => {
           )}
 
           <Link href="/cart">
-            <Button variant="ghost" size="icon" aria-label="View Cart">
+            <Button variant="ghost" size="icon" aria-label="View Cart" className="relative">
               <ShoppingCart className="h-5 w-5" />
               {itemCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
                   {itemCount}
                 </span>
               )}
@@ -120,7 +123,7 @@ const Header = () => {
                      <VeggieDashLogo className="h-8 w-auto" />
                   </Link>
                   {pathname === '/' && (
-                    <form onSubmit={(e) => {handleSearch(e); setIsMobileMenuOpen(false);}} className="flex items-center relative">
+                    <form onSubmit={handleSearch} className="flex items-center relative">
                       <Input
                         type="search"
                         placeholder="Search vegetables..."
