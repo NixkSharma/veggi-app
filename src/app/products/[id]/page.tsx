@@ -8,10 +8,11 @@ import { getProductById } from '@/lib/products';
 import type { Product } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/context/CartContext';
-import { ChevronLeft, PlusCircle } from 'lucide-react';
+import { ChevronLeft, PlusCircle, MinusCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 
 function ProductDetailPageContent() {
   const params = useParams();
