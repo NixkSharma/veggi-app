@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/sheet";
 
 const Header = () => {
-  const { getItemCount } = useCart();
+  const { cartItems, getItemCount } = useCart(); // Destructure cartItems
   const [itemCount, setItemCount] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const router = useRouter();
@@ -25,8 +25,10 @@ const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    setItemCount(getItemCount());
-  }, [getItemCount, useCart().cartItems]); // Listen to cartItems change directly for reactivity
+    // Calculate item count directly from cartItems
+    const currentItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+    setItemCount(currentItemCount);
+  }, [cartItems]); // Depend directly on cartItems
 
   useEffect(() => {
     // Update search term if navigating to home page with search query
@@ -38,17 +40,21 @@ const Header = () => {
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (pathname === '/') {
-      const params = new URLSearchParams(searchParams.toString());
-      if (searchTerm.trim()) {
-        params.set('q', searchTerm.trim());
-      } else {
-        params.delete('q');
-      }
-      router.push(`/?${params.toString()}`);
+    const targetPath = pathname === '/' ? '/' : '/'; // Always search on the homepage
+    const params = new URLSearchParams(searchParams.toString());
+
+    if (searchTerm.trim()) {
+      params.set('q', searchTerm.trim());
     } else {
-      router.push(`/?q=${encodeURIComponent(searchTerm.trim())}`);
+      params.delete('q');
     }
+    // If already on homepage, modify params. Otherwise, navigate with new params.
+    if (pathname === targetPath) {
+        router.push(`${targetPath}?${params.toString()}`);
+    } else {
+        router.push(`${targetPath}?${params.toString()}`);
+    }
+
     if (isMobileMenuOpen) {
       setIsMobileMenuOpen(false);
     }
@@ -82,8 +88,8 @@ const Header = () => {
         </nav>
         
         <div className="flex items-center space-x-2 sm:space-x-4">
-          {pathname === '/' && (
-            <form onSubmit={handleSearch} className="hidden sm:flex items-center relative">
+          {/* Search bar always available but styled differently if not on home */}
+           <form onSubmit={handleSearch} className="hidden sm:flex items-center relative">
               <Input
                 type="search"
                 placeholder="Search vegetables..."
@@ -95,7 +101,6 @@ const Header = () => {
                 <Search className="h-4 w-4" />
               </Button>
             </form>
-          )}
 
           <Link href="/cart">
             <Button variant="ghost" size="icon" aria-label="View Cart" className="relative">
@@ -122,20 +127,18 @@ const Header = () => {
                   <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="self-start">
                      <VeggieDashLogo className="h-8 w-auto" />
                   </Link>
-                  {pathname === '/' && (
-                    <form onSubmit={handleSearch} className="flex items-center relative">
-                      <Input
-                        type="search"
-                        placeholder="Search vegetables..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="h-9 pr-10 w-full"
-                      />
-                      <Button type="submit" variant="ghost" size="icon" className="absolute right-0 h-9 w-9">
-                        <Search className="h-4 w-4" />
-                      </Button>
-                    </form>
-                  )}
+                  <form onSubmit={handleSearch} className="flex items-center relative">
+                    <Input
+                      type="search"
+                      placeholder="Search vegetables..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="h-9 pr-10 w-full"
+                    />
+                    <Button type="submit" variant="ghost" size="icon" className="absolute right-0 h-9 w-9">
+                      <Search className="h-4 w-4" />
+                    </Button>
+                  </form>
                   <nav className="flex flex-col space-y-4">
                     {navLinks.map((link) => (
                       <Link
