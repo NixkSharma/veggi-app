@@ -1,5 +1,5 @@
 
-"use client"; // Keep "use client" for SearchParam interactions at the HomeView level
+"use client"; // This "use client" is for HomeView, not the default export HomePage
 
 import ProductList from '@/components/ProductList';
 import { getProducts, getCategories } from '@/lib/products';
@@ -28,15 +28,11 @@ async function PageDataFetcher({ searchTerm, category }: { searchTerm: string, c
 
 // Server component wrapper for initial data load
 export default async function HomePage({
-  searchParams: searchParamsProp, // Renamed from searchParams to make the 'await' clearer
+  searchParams: searchParamsProp,
 }: {
   searchParams?: { [key: string]: string | string[] | undefined };
 }) {
-  // As per Next.js error: "searchParams should be awaited before using its properties."
-  // This pattern might be required for Next.js to correctly handle dynamic rendering in async Server Components.
-  // If searchParamsProp is an object, `await searchParamsProp` resolves to searchParamsProp.
-  // If searchParamsProp is undefined, `await undefined` resolves to undefined.
-  const resolvedSearchParams = searchParamsProp ? await searchParamsProp : undefined;
+  const resolvedSearchParams = searchParamsProp ? await searchParamsProp : {};
 
   const qParam = resolvedSearchParams?.q;
   const categoryParam = resolvedSearchParams?.category;
@@ -55,7 +51,6 @@ export default async function HomePage({
     category = categoryParam;
   }
   
-  // Ensure empty category (e.g. from ?category= or if param is undefined) defaults to 'All'
   if (category === '' || category === undefined) {
     category = 'All';
   }
@@ -73,20 +68,17 @@ export default async function HomePage({
 // Client component to handle interactions
 function HomeView({ initialProducts, initialCategories }: { initialProducts: Product[], initialCategories: string[]}) {
   const router = useRouter();
-  const searchParamsHook = useSearchParams(); // Using hook for client-side reactivity
+  const searchParamsHook = useSearchParams(); 
 
-  // Initialize states from URL parameters, falling back to props if URL params are not yet reflected
-  const searchTermQuery = searchParamsHook.get('q') || (initialProducts.length > 0 ? '' : (typeof searchParamsProp?.q === 'string' ? searchParamsProp.q : ''));
-  const categoryQuery = searchParamsHook.get('category') || (initialProducts.length > 0 ? 'All' : (typeof searchParamsProp?.category === 'string' ? searchParamsProp.category : 'All'));
+  const initialSearchTermFromUrl = searchParamsHook.get('q') || '';
   
-  const [currentSearchTerm, setCurrentSearchTerm] = useState(searchTermQuery);
+  const [currentSearchTerm, setCurrentSearchTerm] = useState(initialSearchTermFromUrl);
   
-  const products = initialProducts; // Data is primarily driven by props from server
+  const products = initialProducts; 
   const categories = initialCategories;
 
 
   useEffect(() => {
-    // Sync local search term state if URL query param changes
     setCurrentSearchTerm(searchParamsHook.get('q') || '');
   }, [searchParamsHook]);
 
@@ -106,7 +98,7 @@ function HomeView({ initialProducts, initialCategories }: { initialProducts: Pro
     if (newCategory && newCategory !== 'All') {
       params.set('category', newCategory);
     } else {
-      params.delete('category'); // If 'All' or empty, remove the category param
+      params.delete('category'); 
     }
     router.push(`/?${params.toString()}`);
   };
@@ -157,14 +149,9 @@ function HomeView({ initialProducts, initialCategories }: { initialProducts: Pro
         </div>
       </div>
       
-      {/* ProductList isLoading is false as data is pre-fetched by Server Component */}
       <ProductList products={products} isLoading={false} /> 
     </div>
   );
 }
 
-// This declaration might be needed if searchParamsProp is directly used in HomeView's initialization logic,
-// but it's better to rely on useSearchParam hook within the client component.
-// For the server component part, searchParamsProp is passed by Next.js.
-let searchParamsProp: { [key: string]: string | string[] | undefined } | undefined;
-
+// Removed stray searchParamsProp declaration that was here
