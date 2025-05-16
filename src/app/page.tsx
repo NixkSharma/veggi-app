@@ -5,10 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Leaf, Zap, Smile } from 'lucide-react';
 
-// Explicitly set the page to be static.
-export const dynamic = 'force-static';
-
 // This is the new static landing page.
+// Removed 'export const dynamic = 'force-static';' to allow dynamic rendering if needed by auth providers.
 export default function LandingPage() {
   return (
     <div className="flex flex-col min-h-dvh bg-background">
