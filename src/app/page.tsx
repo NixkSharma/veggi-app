@@ -3,10 +3,13 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Leaf, Zap, Smile } from 'lucide-react'; // Using Leaf for Farm-Fresh, Zap for Swift, Smile for Happy
+import { Leaf, Zap, Smile } from 'lucide-react';
+
+// Explicitly set the page to be static. This might help with the headers() error
+// if Clerk's SSR utilities are causing Next.js to treat the page as dynamic.
+export const dynamic = 'force-static';
 
 // This is the new static landing page.
-// It does not need to be async as it's not fetching data directly.
 export default function LandingPage() {
   return (
     <div className="flex flex-col min-h-dvh bg-background">
