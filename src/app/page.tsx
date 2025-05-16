@@ -3,8 +3,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Leaf, ShoppingCartIcon, Smile, Zap } from 'lucide-react'; // Using Leaf for Farm-Fresh
+import { Leaf, Zap, Smile } from 'lucide-react'; // Using Leaf for Farm-Fresh, Zap for Swift, Smile for Happy
 
+// This is the new static landing page.
+// It does not need to be async as it's not fetching data directly.
 export default function LandingPage() {
   return (
     <div className="flex flex-col min-h-dvh bg-background">
@@ -12,7 +14,7 @@ export default function LandingPage() {
       <section className="relative flex flex-col items-center justify-center text-center py-24 md:py-32 px-4 bg-gradient-to-b from-primary/5 via-background to-background text-foreground">
         <div className="absolute inset-0 opacity-10">
           <Image
-            src="https://placehold.co/1920x800.png" 
+            src="https://placehold.co/1920x800.png"
             alt="Background collage of fresh vegetables"
             fill
             className="object-cover"
@@ -27,11 +29,11 @@ export default function LandingPage() {
           <p className="text-lg sm:text-xl md:text-2xl text-muted-foreground mb-10 max-w-2xl mx-auto">
             Discover the vibrant taste of locally-sourced vegetables, brought straight from the farm to your kitchen with VeggieDash.
           </p>
-          <Link href="/dashboard" legacyBehavior>
-            <Button size="lg" className="text-lg font-semibold px-10 py-7 bg-accent hover:bg-accent/90 text-accent-foreground rounded-full shadow-xl transition-transform hover:scale-105">
-              Get Started & Explore
-            </Button>
-          </Link>
+          <Button asChild size="lg" className="text-lg font-semibold px-10 py-7 bg-accent hover:bg-accent/90 text-accent-foreground rounded-full shadow-xl transition-transform hover:scale-105">
+            <Link href="/dashboard">
+              Get Started & Explore Products
+            </Link>
+          </Button>
         </div>
       </section>
 
@@ -58,7 +60,7 @@ export default function LandingPage() {
             <Card className="text-center shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl border-border/50 group p-6">
               <CardHeader className="items-center">
                  <div className="p-3 rounded-full bg-primary/10 mb-4 group-hover:bg-primary/20 transition-colors">
-                  <Zap className="h-10 w-10 text-primary" /> {/* Zap for speed */}
+                  <Zap className="h-10 w-10 text-primary" />
                 </div>
                 <CardTitle className="text-2xl font-semibold">Swift Delivery</CardTitle>
               </CardHeader>
@@ -94,11 +96,11 @@ export default function LandingPage() {
           <p className="text-lg text-muted-foreground max-w-xl mx-auto mb-10">
             Join the VeggieDash community and experience the convenience and joy of farm-fresh vegetables delivered.
           </p>
-          <Link href="/dashboard" legacyBehavior>
-            <Button size="lg" className="text-lg font-semibold px-10 py-7 bg-accent hover:bg-accent/90 text-accent-foreground rounded-full shadow-xl transition-transform hover:scale-105">
+          <Button asChild size="lg" className="text-lg font-semibold px-10 py-7 bg-accent hover:bg-accent/90 text-accent-foreground rounded-full shadow-xl transition-transform hover:scale-105">
+            <Link href="/dashboard">
               Browse Our Veggies
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </section>
     </div>
