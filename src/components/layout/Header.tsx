@@ -1,8 +1,7 @@
-
 "use client";
 
 import Link from 'next/link';
-import { ShoppingCart, Search, Menu, LayoutDashboard } from 'lucide-react'; // Added LayoutDashboard
+import { ShoppingCart, Search, Menu, User } from 'lucide-react'; // User icon for Sign In
 import VeggieDashLogo from '@/components/VeggieDashLogo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +13,7 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 
 const Header = () => {
   const { cartItems } = useCart();
@@ -45,7 +45,7 @@ const Header = () => {
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const targetPath = '/dashboard'; // Always search on the dashboard page
+    const targetPath = '/dashboard'; 
     
     const params = new URLSearchParams(currentSearchParams.toString());
     
@@ -63,11 +63,11 @@ const Header = () => {
   };
 
   const navLinks = [
-    { href: '/', label: 'Home' }, // Landing page
-    { href: '/dashboard', label: 'Shop Vegetables' }, // Main product browsing
+    { href: '/', label: 'Home' },
+    { href: '/dashboard', label: 'Shop Vegetables' },
     { href: '/about', label: 'About Us' },
     { href: '/contact', label: 'Contact' },
-    { href: '/admin/dashboard', label: 'Admin'}, // Admin link
+    // { href: '/admin/dashboard', label: 'Admin'}, // We can add this back when admin auth is distinct
   ];
 
   return (
@@ -84,7 +84,7 @@ const Header = () => {
               key={link.href}
               href={link.href}
               className={`text-sm font-medium transition-colors hover:text-primary ${
-                (pathname === link.href || (link.href === '/dashboard' && pathname.startsWith('/products'))) // Highlight "Shop" if on dashboard or product detail
+                (pathname === link.href || (link.href === '/dashboard' && pathname.startsWith('/products'))) 
                 ? 'text-primary' : 'text-muted-foreground'
               }`}
             >
@@ -93,14 +93,14 @@ const Header = () => {
           ))}
         </nav>
         
-        <div className="flex items-center space-x-2 sm:space-x-4">
+        <div className="flex items-center space-x-2 sm:space-x-3">
            <form onSubmit={handleSearch} className="hidden sm:flex items-center relative">
               <Input
                 type="search"
                 placeholder="Search vegetables..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-9 pr-10 w-40 lg:w-64"
+                className="h-9 pr-10 w-40 lg:w-56" // Adjusted width
               />
               <Button type="submit" variant="ghost" size="icon" className="absolute right-0 h-9 w-9" aria-label="Search">
                 <Search className="h-4 w-4" />
@@ -118,6 +118,16 @@ const Header = () => {
             </Button>
           </Link>
 
+          <SignedIn>
+            <UserButton afterSignOutUrl="/" />
+          </SignedIn>
+          <SignedOut>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/sign-in">Sign In</Link>
+            </Button>
+          </SignedOut>
+
+
           {/* Mobile Navigation Trigger */}
           <div className="md:hidden">
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
@@ -129,7 +139,7 @@ const Header = () => {
               </SheetTrigger>
               <SheetContent side="right" className="w-full max-w-xs bg-background p-6">
                 <div className="flex flex-col space-y-6">
-                  <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="self-start">
+                  <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="self-start mb-4">
                      <VeggieDashLogo className="h-8 w-auto" />
                   </Link>
                   <form onSubmit={handleSearch} className="flex items-center relative">
@@ -144,21 +154,31 @@ const Header = () => {
                       <Search className="h-4 w-4" />
                     </Button>
                   </form>
-                  <nav className="flex flex-col space-y-4">
+                  <nav className="flex flex-col space-y-3 mt-4">
                     {navLinks.map((link) => (
                       <Link
                         key={link.href}
                         href={link.href}
                         onClick={() => setIsMobileMenuOpen(false)}
-                        className={`text-lg font-medium transition-colors hover:text-primary ${
+                        className={`block rounded-md px-3 py-2 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground ${
                            (pathname === link.href || (link.href === '/dashboard' && pathname.startsWith('/products'))) 
-                           ? 'text-primary' : 'text-foreground'
+                           ? 'bg-accent text-accent-foreground' : 'text-foreground'
                         }`}
                       >
                         {link.label}
                       </Link>
                     ))}
                   </nav>
+                  <div className="mt-auto pt-6 border-t">
+                    <SignedOut>
+                      <Button asChild className="w-full mb-2">
+                        <Link href="/sign-in" onClick={() => setIsMobileMenuOpen(false)}>Sign In</Link>
+                      </Button>
+                      <Button asChild variant="outline" className="w-full">
+                        <Link href="/sign-up" onClick={() => setIsMobileMenuOpen(false)}>Sign Up</Link>
+                      </Button>
+                    </SignedOut>
+                  </div>
                 </div>
               </SheetContent>
             </Sheet>

@@ -6,6 +6,7 @@ import { Toaster } from '@/components/ui/toaster';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { cn } from '@/lib/utils';
+import { ClerkProvider } from '@clerk/nextjs';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -32,23 +33,25 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body 
-        className={cn(
-          "min-h-screen bg-background font-sans antialiased",
-          geistSans.variable,
-          geistMono.variable
-        )}
-      >
-        <CartProvider>
-          <div className="relative flex min-h-dvh flex-col bg-background">
-            <Header />
-            <main className="flex-1">{children}</main>
-            <Footer />
-          </div>
-          <Toaster />
-        </CartProvider>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en" suppressHydrationWarning>
+        <body 
+          className={cn(
+            "min-h-screen bg-background font-sans antialiased",
+            geistSans.variable,
+            geistMono.variable
+          )}
+        >
+          <CartProvider>
+            <div className="relative flex min-h-dvh flex-col bg-background">
+              <Header />
+              <main className="flex-1">{children}</main>
+              <Footer />
+            </div>
+            <Toaster />
+          </CartProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
