@@ -1,5 +1,5 @@
 
-import type { Product } from '@/lib/types';
+import type { Product, CategoryWithId } from '@/lib/types';
 import prisma from './prisma';
 
 const DEFAULT_PLACEHOLDER_IMAGE = 'https://placehold.co/600x400.png';
@@ -20,6 +20,13 @@ const mapPrismaProductToAppProduct = (prismaProduct: any): Product => {
 
 // --- Mock Data ---
 const mockCategoriesData: string[] = ["All", "Fresh Veggies", "Leafy Greens", "Root Vegetables", "Fruits"];
+const mockDetailedCategoriesData: CategoryWithId[] = [
+  { id: 1, name: 'Fresh Veggies', imageUrl: 'https://placehold.co/200x150.png?text=Veggies', dataAiHint: 'fresh vegetables' },
+  { id: 2, name: 'Leafy Greens', imageUrl: 'https://placehold.co/200x150.png?text=Greens', dataAiHint: 'leafy greens' },
+  { id: 3, name: 'Root Vegetables', imageUrl: 'https://placehold.co/200x150.png?text=Roots', dataAiHint: 'root vegetables' },
+  { id: 4, name: 'Fruits', imageUrl: 'https://placehold.co/200x150.png?text=Fruits', dataAiHint: 'fresh fruits' },
+];
+
 
 const mockProductsData: Product[] = [
   { id: 1, name: 'Mock Carrot', description: 'Crunchy mock carrots from local farms. Rich in Vitamin A.', price: 1.99, imageUrl: 'https://placehold.co/600x400.png?text=Mock+Carrot', category: 'Root Vegetables', stock: 100, dataAiHint: 'carrot mock organic' },
@@ -63,6 +70,8 @@ export const getProducts = async (searchTerm?: string, categoryName?: string): P
       name: categoryName,
     };
   }
+  // If the status field is present in your Prisma schema for Product:
+  // whereClause.status = 'ACTIVE'; // Only fetch active products for the public site
 
   try {
     const prismaProducts = await prisma.product.findMany({
@@ -78,9 +87,6 @@ export const getProducts = async (searchTerm?: string, categoryName?: string): P
     return prismaProducts.map(mapPrismaProductToAppProduct);
   } catch (error) {
     console.error("Prisma error in getProducts:", error);
-    // Fallback for critical errors, especially if USE_MOCK_DATA is not set or is false.
-    // In a production app, you might want to re-throw or handle more specifically.
-    // For now, returning empty array to prevent full crash if DB is inaccessible.
     return []; 
   }
 };
@@ -122,24 +128,54 @@ export const getProductById = async (id: number): Promise<Product | undefined> =
   }
 };
 
+// Existing function to get category names as strings
 export const getCategories = async (): Promise<string[]> => {
   console.log("getCategories called.");
   if (process.env.USE_MOCK_DATA === 'true') {
-    console.log("USING MOCK DATA for getCategories");
+    console.log("USING MOCK DATA for getCategories (string array)");
     return mockCategoriesData;
   }
   
-  console.log("Attempting to fetch categories from Prisma");
+  console.log("Attempting to fetch category names from Prisma");
   try {
     const categories = await prisma.category.findMany({
       orderBy: {
         name: 'asc'
       }
     });
-    console.log(`Prisma fetched ${categories.length} categories.`);
+    console.log(`Prisma fetched ${categories.length} category names.`);
     return ["All", ...categories.map(c => c.name)];
   } catch (error) {
-    console.error("Prisma error in getCategories:", error);
-    return ["All"]; // Fallback for critical errors
+    console.error("Prisma error in getCategories (string array):", error);
+    return ["All"]; 
+  }
+};
+
+// New function to get categories with IDs and image URLs
+export const getCategoriesWithIds = async (): Promise<CategoryWithId[]> => {
+  console.log("getCategoriesWithIds called.");
+  if (process.env.USE_MOCK_DATA === 'true') {
+    console.log("USING MOCK DATA for getCategoriesWithIds (detailed objects)");
+    return mockDetailedCategoriesData;
+  }
+
+  console.log("Attempting to fetch detailed categories from Prisma");
+  try {
+    const prismaCategories = await prisma.category.findMany({
+      orderBy: {
+        name: 'asc'
+      }
+    });
+    console.log(`Prisma fetched ${prismaCategories.length} detailed categories.`);
+    return prismaCategories.map(cat => ({
+      id: cat.id,
+      name: cat.name,
+      imageUrl: cat.imageUrl || 'https://placehold.co/200x150.png', // Default placeholder
+      dataAiHint: cat.name.toLowerCase() || 'category item'
+    }));
+  } catch (error) {
+    console.error("Prisma error in getCategoriesWithIds (detailed objects):", error);
+    // Fallback to prevent full crash if DB is inaccessible or USE_MOCK_DATA not set
+    return []; 
   }
 };

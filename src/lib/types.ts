@@ -14,3 +14,11 @@ export type CartItem = {
   product: Product;
   quantity: number;
 };
+
+// Added for fetching categories with their IDs and images
+export type CategoryWithId = {
+  id: number;
+  name: string;
+  imageUrl: string | null;
+  dataAiHint?: string;
+};
