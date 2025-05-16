@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Leaf, Zap, Smile } from 'lucide-react';
 
-// Explicitly set the page to be static. This might help with the headers() error
-// if Clerk's SSR utilities are causing Next.js to treat the page as dynamic.
+// Explicitly set the page to be static.
 export const dynamic = 'force-static';
 
 // This is the new static landing page.
