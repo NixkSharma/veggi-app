@@ -7,8 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { CheckCircle, Package } from 'lucide-react';
-import type { CartItem } from '@/lib/types'; 
+import type { CartItem, Product } from '@/lib/types'; 
 import Image from 'next/image';
+
+const DEFAULT_PRODUCT_IMAGE_CONFIRMATION = 'https://placehold.co/50x50.png';
 
 interface AddressFormData {
   fullName: string;
@@ -21,11 +23,22 @@ interface AddressFormData {
   notes?: string;
 }
 
+// Ensure Product within CartItem is fully defined to prevent access errors
+interface SanitizedCartItem extends Omit<CartItem, 'product'> {
+  product: Product & { 
+    id: number; // ensure id is number
+    name: string; // ensure name is string
+    price: number; // ensure price is number
+    imageUrl?: string | null; // can be null
+    dataAiHint?: string | null; // can be null
+  };
+}
+
 interface Order {
   id: string;
   timestamp: string;
   deliveryDetails: AddressFormData;
-  items: CartItem[]; 
+  items: SanitizedCartItem[]; 
   totalAmount: number;
   status: string;
 }
@@ -41,17 +54,26 @@ function OrderConfirmationContent() {
       const storedOrdersRaw = localStorage.getItem('veggieDashOrders');
       if (storedOrdersRaw) {
         try {
-          const storedOrders = JSON.parse(storedOrdersRaw);
+          const storedOrders: Order[] = JSON.parse(storedOrdersRaw);
           let currentOrder = storedOrders.find((o: Order) => o.id === orderId);
           
           if (currentOrder && currentOrder.items) {
-            currentOrder.items = currentOrder.items.map((item: CartItem) => ({
-              ...item,
-              product: {
-                ...item.product,
-                id: typeof item.product.id === 'string' ? parseInt(item.product.id, 10) : item.product.id,
-              }
-            })).filter((item: CartItem) => !isNaN(item.product.id));
+            // Sanitize items to ensure product properties are as expected
+            currentOrder.items = currentOrder.items.map((item): SanitizedCartItem => {
+              const product = item.product || {} as Product; // Ensure product exists
+              return {
+                ...item,
+                product: {
+                  ...product,
+                  id: typeof product.id === 'string' ? parseInt(product.id, 10) : (product.id || 0),
+                  name: product.name || 'Unnamed Product',
+                  price: typeof product.price === 'number' ? product.price : 0,
+                  imageUrl: product.imageUrl, // Can be null
+                  dataAiHint: product.dataAiHint, // Can be null
+                },
+                quantity: item.quantity || 1,
+              };
+            }).filter((item: SanitizedCartItem) => !isNaN(item.product.id)); // Filter out items with invalid product ID
           }
           setOrder(currentOrder || null);
         } catch (error) {
@@ -100,12 +122,12 @@ function OrderConfirmationContent() {
                   <div className="flex items-center space-x-3">
                     <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded">
                        <Image 
-                        src={item.product.imageUrl || 'https://placehold.co/50x50.png'} 
+                        src={item.product.imageUrl || DEFAULT_PRODUCT_IMAGE_CONFIRMATION} 
                         alt={item.product.name} 
                         fill 
                         sizes="50px" 
                         className="object-cover"
-                        data-ai-hint={item.product.dataAiHint || 'vegetable item'}
+                        data-ai-hint={item.product.dataAiHint || item.product.name?.toLowerCase().split(' ').slice(0,2).join(' ') || 'vegetable item'}
                       />
                     </div>
                     <div>
@@ -156,3 +178,5 @@ export default function OrderConfirmationPage() {
     </Suspense>
   )
 }
+
+    

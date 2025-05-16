@@ -25,36 +25,48 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    setIsClient(true); // Component has mounted, client-side logic can run
+    setIsClient(true);
   }, []);
 
   useEffect(() => {
-    if (isClient) { // Only load from localStorage on the client
+    if (isClient) { 
       const storedCart = localStorage.getItem(CART_STORAGE_KEY);
       if (storedCart) {
         try {
-          const parsedCart = JSON.parse(storedCart);
-          const sanitizedCart = parsedCart.map((item: CartItem) => ({
-            ...item,
-            product: {
-              ...item.product,
-              id: typeof item.product.id === 'string' ? parseInt(item.product.id, 10) : item.product.id,
-            }
-          })).filter((item: CartItem) => !isNaN(item.product.id));
+          const parsedCart: CartItem[] = JSON.parse(storedCart);
+          // Ensure product IDs are numbers and product objects are well-formed
+          const sanitizedCart = parsedCart.map(item => {
+            const product = item.product || {} as Product; // Ensure product exists
+            return {
+              ...item,
+              product: {
+                ...product,
+                id: typeof product.id === 'string' ? parseInt(product.id, 10) : (product.id || 0),
+                name: product.name || 'Unnamed Product',
+                price: typeof product.price === 'number' ? product.price : 0,
+                // Keep other product properties as they are, assuming they are correct or nullable
+              },
+              quantity: item.quantity || 1,
+            };
+          }).filter(item => !isNaN(item.product.id) && item.product.id !== 0); // Filter out invalid items
           setCartItems(sanitizedCart);
         } catch (error) {
           console.error("Failed to parse cart from localStorage", error);
-          localStorage.removeItem(CART_STORAGE_KEY); // Clear corrupted cart
+          localStorage.removeItem(CART_STORAGE_KEY); 
         }
       }
     }
-  }, [isClient]); // Run once when isClient becomes true
+  }, [isClient]);
 
   useEffect(() => {
-    if (isClient) { // Only save to localStorage on the client
+    // Only save to localStorage on the client and if cartItems has been initialized
+    if (isClient && cartItems.length > 0) { 
       localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
+    } else if (isClient && cartItems.length === 0) {
+      // If cart becomes empty after being initialized, clear localStorage
+      localStorage.removeItem(CART_STORAGE_KEY);
     }
-  }, [cartItems, isClient]); // Save whenever cartItems or isClient changes (after initial load)
+  }, [cartItems, isClient]);
 
   const addToCart = (product: Product, quantity: number = 1) => {
     setCartItems(prevItems => {
@@ -142,6 +154,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const clearCart = () => {
     setCartItems([]);
+    if (isClient) {
+      localStorage.removeItem(CART_STORAGE_KEY); // Also clear from storage
+    }
     toast({
       title: "Cart cleared",
       description: "Your shopping cart is now empty.",
@@ -156,22 +171,32 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return cartItems.reduce((count, item) => count + item.quantity, 0);
   };
   
+  const contextValue = {
+    cartItems,
+    addToCart,
+    removeFromCart,
+    updateQuantity,
+    clearCart,
+    getCartTotal,
+    getItemCount,
+  };
+
+  // Provide a default, non-functional context for SSR or pre-hydration if isClient is false
+  // This has been simplified as the main logic now depends on isClient for localStorage.
   if (!isClient) {
-    // Provide a default, non-functional context for SSR or pre-hydration
-    // to prevent errors when useCart is called on server or before localStorage is available.
-    return <CartContext.Provider value={{
-      cartItems: [],
-      addToCart: () => { console.warn("Cart action called before client hydration"); },
-      removeFromCart: () => { console.warn("Cart action called before client hydration"); },
-      updateQuantity: () => { console.warn("Cart action called before client hydration"); },
-      clearCart: () => { console.warn("Cart action called before client hydration"); },
-      getCartTotal: () => 0,
-      getItemCount: () => 0,
-    }}>{children}</CartContext.Provider>;
+      const ssrSafeContext = {
+          ...contextValue,
+          cartItems: [], // SSR cart is always empty
+          addToCart: () => console.warn("Attempted to add to cart on server or before hydration."),
+          removeFromCart: () => console.warn("Attempted to remove from cart on server or before hydration."),
+          updateQuantity: () => console.warn("Attempted to update quantity on server or before hydration."),
+          clearCart: () => console.warn("Attempted to clear cart on server or before hydration."),
+      };
+      return <CartContext.Provider value={ssrSafeContext}>{children}</CartContext.Provider>;
   }
 
   return (
-    <CartContext.Provider value={{ cartItems, addToCart, removeFromCart, updateQuantity, clearCart, getCartTotal, getItemCount }}>
+    <CartContext.Provider value={contextValue}>
       {children}
     </CartContext.Provider>
   );
@@ -184,3 +209,5 @@ export const useCart = () => {
   }
   return context;
 };
+
+    

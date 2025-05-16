@@ -10,6 +10,8 @@ import Image from 'next/image';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
+const DEFAULT_PRODUCT_IMAGE_CHECKOUT = 'https://placehold.co/50x50.png';
+
 export default function CheckoutPage() {
   const { cartItems, getCartTotal, getItemCount } = useCart();
   const router = useRouter();
@@ -49,16 +51,16 @@ export default function CheckoutPage() {
                   <div className="flex items-center space-x-3">
                     <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded">
                       <Image 
-                        src={item.product.imageUrl || 'https://placehold.co/50x50.png'} 
-                        alt={item.product.name} 
+                        src={item.product.imageUrl || DEFAULT_PRODUCT_IMAGE_CHECKOUT} 
+                        alt={item.product.name || 'Product image'} 
                         fill 
                         sizes="50px" 
                         className="object-cover"
-                        data-ai-hint={item.product.dataAiHint || 'vegetable item'}
+                        data-ai-hint={item.product.dataAiHint || item.product.name?.toLowerCase().split(' ').slice(0,2).join(' ') || 'vegetable item'}
                       />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-foreground">{item.product.name}</p>
+                      <p className="text-sm font-medium text-foreground">{item.product.name || 'Unnamed Product'}</p>
                       <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
                     </div>
                   </div>
@@ -91,3 +93,5 @@ export default function CheckoutPage() {
     </div>
   );
 }
+
+    

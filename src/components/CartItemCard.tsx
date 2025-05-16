@@ -13,6 +13,8 @@ interface CartItemCardProps {
   item: CartItem;
 }
 
+const DEFAULT_PRODUCT_IMAGE = 'https://placehold.co/100x100.png';
+
 const CartItemCard: React.FC<CartItemCardProps> = ({ item }) => {
   const { updateQuantity, removeFromCart } = useCart();
 
@@ -20,24 +22,26 @@ const CartItemCard: React.FC<CartItemCardProps> = ({ item }) => {
     updateQuantity(item.product.id, newQuantity);
   };
 
+  const productDataAiHint = item.product.dataAiHint || item.product.name?.toLowerCase().split(' ').slice(0,2).join(' ') || 'vegetable item';
+
   return (
     <div className="flex items-center space-x-4 rounded-lg border bg-card p-4 shadow-sm">
       <Link href={`/products/${item.product.id}`} className="flex-shrink-0">
         <div className="relative h-20 w-20 overflow-hidden rounded-md sm:h-24 sm:w-24">
           <Image
-            src={item.product.imageUrl || 'https://placehold.co/100x100.png'}
-            alt={item.product.name}
+            src={item.product.imageUrl || DEFAULT_PRODUCT_IMAGE}
+            alt={item.product.name || 'Product image'}
             fill
             sizes="100px"
             className="object-cover"
-            data-ai-hint={item.product.dataAiHint || 'vegetable item'}
+            data-ai-hint={productDataAiHint}
           />
         </div>
       </Link>
 
       <div className="flex-grow">
         <Link href={`/products/${item.product.id}`}>
-          <h3 className="text-base font-medium text-foreground hover:text-primary sm:text-lg">{item.product.name}</h3>
+          <h3 className="text-base font-medium text-foreground hover:text-primary sm:text-lg">{item.product.name || 'Unnamed Product'}</h3>
         </Link>
         <p className="text-sm text-muted-foreground">Price: ${item.product.price.toFixed(2)}</p>
         <p className="text-sm text-muted-foreground sm:hidden">Total: ${(item.product.price * item.quantity).toFixed(2)}</p>
@@ -103,3 +107,5 @@ const CartItemCard: React.FC<CartItemCardProps> = ({ item }) => {
 };
 
 export default CartItemCard;
+
+    

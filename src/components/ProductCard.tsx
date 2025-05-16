@@ -6,15 +6,19 @@ import type { Product } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useCart } from '@/context/CartContext';
-import { PlusCircle } from 'lucide-react'; // Removed ShoppingCart as PlusCircle is used
+import { PlusCircle } from 'lucide-react';
 import Link from 'next/link';
 
 interface ProductCardProps {
   product: Product;
 }
 
+const DEFAULT_PRODUCT_IMAGE = 'https://placehold.co/600x400.png';
+
 const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const { addToCart } = useCart();
+
+  const productDataAiHint = product.dataAiHint || product.name?.toLowerCase().split(' ').slice(0,2).join(' ') || 'vegetable food';
 
   return (
     <Card className="flex flex-col overflow-hidden rounded-lg shadow-lg transition-all hover:shadow-xl h-full">
@@ -22,12 +26,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         <CardHeader className="p-0">
           <div className="aspect-[4/3] relative w-full overflow-hidden">
             <Image
-              src={product.imageUrl || 'https://placehold.co/600x400.png'}
-              alt={product.name}
+              src={product.imageUrl || DEFAULT_PRODUCT_IMAGE}
+              alt={product.name || 'Product image'}
               fill
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               className="object-cover transition-transform duration-300 ease-in-out hover:scale-105"
-              data-ai-hint={product.dataAiHint || 'vegetable food'}
+              data-ai-hint={productDataAiHint}
             />
           </div>
         </CardHeader>
@@ -35,7 +39,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       <CardContent className="p-4 flex-grow">
         <Link href={`/products/${product.id}`} className="block">
           <CardTitle className="text-lg font-semibold hover:text-primary transition-colors">
-            {product.name}
+            {product.name || 'Unnamed Product'}
           </CardTitle>
         </Link>
         <CardDescription className="mt-1 text-sm text-muted-foreground h-10 overflow-hidden">
@@ -54,7 +58,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         <Button 
           onClick={() => addToCart(product)} 
           className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-          aria-label={`Add ${product.name} to cart`}
+          aria-label={`Add ${product.name || 'product'} to cart`}
           disabled={product.stock <= 0}
         >
           <PlusCircle className="mr-2 h-5 w-5" /> Add to Cart
@@ -65,3 +69,6 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 };
 
 export default ProductCard;
+
+
+    
