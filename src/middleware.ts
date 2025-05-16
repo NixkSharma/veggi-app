@@ -1,17 +1,21 @@
+
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 
 const isProtectedRoute = createRouteMatcher([
   '/dashboard(.*)', // Protects /dashboard and all its sub-routes
-  '/admin(.*)', // Protects /admin and all its sub-routes (for future use)
-  '/cart(.*)', // Optionally protect cart
-  '/checkout(.*)', // Optionally protect checkout
-  '/order-confirmation(.*)', // Optionally protect order confirmation
+  '/admin(.*)', // Protects /admin and all its sub-routes
+  '/cart(.*)', 
+  '/checkout(.*)', 
+  '/order-confirmation(.*)', 
 ]);
 
 export default clerkMiddleware((auth, req) => {
   if (isProtectedRoute(req)) {
     auth().protect(); // Protect the route if it matches
   }
+}, {
+  publicRoutes: ["/", "/about", "/contact", "/sign-in", "/sign-up"], // Explicitly list all public routes, including the landing page
+  ignoredRoutes: ["/api/webhooks/clerk"], // Clerk webhooks should be ignored by auth protection
 });
 
 export const config = {
@@ -21,8 +25,7 @@ export const config = {
      * - _next
      * - static (from public)
      * - favicon.ico (from public)
-     * - api (API routes, if you want to protect them individually or handle auth differently)
-     * - trpc (if using tRPC)
+     * - api/webhooks/clerk (explicitly ignore this specific API route for Clerk)
      */
     "/((?!_next/static|_next/image|favicon.ico|static|api/webhooks/clerk).*)",
     "/" // Ensure the root is matched for public/protected logic
