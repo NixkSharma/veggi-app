@@ -4,15 +4,12 @@ import Image from 'next/image';
 import { getProductById } from '@/lib/products';
 import type { Product } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-// useCart and quantity controls are client-side, so ProductDetailActions will be a client component
-// import { useCart } from '@/context/CartContext'; 
 import { ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import ProductDetailActions from './ProductDetailActions'; // New client component
+import ProductDetailActions from './ProductDetailActions'; 
 
-// This is the Server Component responsible for fetching data
 async function ProductDetailPageData({ productId }: { productId: number }) {
   const product = await getProductById(productId);
 
@@ -21,7 +18,7 @@ async function ProductDetailPageData({ productId }: { productId: number }) {
       <div className="container mx-auto px-4 py-12 text-center">
         <h1 className="text-2xl font-semibold">Product not found</h1>
         <Button asChild variant="link" className="mt-4">
-          <Link href="/">Go back to shopping</Link>
+          <Link href="/dashboard">Go back to shopping</Link>
         </Button>
       </div>
     );
@@ -30,7 +27,7 @@ async function ProductDetailPageData({ productId }: { productId: number }) {
   return (
     <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
       <Button variant="outline" asChild className="mb-6">
-        <Link href="/">
+        <Link href="/dashboard">
           <ChevronLeft className="mr-2 h-4 w-4" /> Back to Products
         </Link>
       </Button>
@@ -42,7 +39,7 @@ async function ProductDetailPageData({ productId }: { productId: number }) {
             fill
             sizes="(max-width: 768px) 100vw, 50vw"
             className="object-cover"
-            priority // Prioritize loading of main product image
+            priority 
             data-ai-hint={product.dataAiHint || 'vegetable item'}
           />
         </div>
@@ -52,7 +49,6 @@ async function ProductDetailPageData({ productId }: { productId: number }) {
           <p className="text-3xl font-semibold text-primary">${product.price.toFixed(2)}</p>
           <p className="text-base text-muted-foreground leading-relaxed">{product.description || 'No description available.'}</p>
           
-          {/* Client component for quantity, add to cart, stock info */}
           <ProductDetailActions product={product} />
         </div>
       </div>
@@ -60,9 +56,7 @@ async function ProductDetailPageData({ productId }: { productId: number }) {
   );
 }
 
-// Main page export remains a Server Component
 export default async function ProductDetailPage({ params: paramsProp }: { params: { id: string } }) {
-  // Await paramsProp before accessing its properties
   const resolvedParams = await paramsProp;
   const idParam = resolvedParams.id;
   const productId = parseInt(idParam, 10);
@@ -73,7 +67,7 @@ export default async function ProductDetailPage({ params: paramsProp }: { params
         <h1 className="text-2xl font-semibold">Invalid Product ID</h1>
         <p className="text-muted-foreground">The product ID in the URL is not valid.</p>
         <Button asChild variant="link" className="mt-4">
-          <Link href="/">Go back to shopping</Link>
+          <Link href="/dashboard">Go back to shopping</Link>
         </Button>
       </div>
     );

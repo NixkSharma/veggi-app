@@ -25,7 +25,7 @@ interface Order {
   id: string;
   timestamp: string;
   deliveryDetails: AddressFormData;
-  items: CartItem[]; // Uses the updated CartItem which uses Product with id: number
+  items: CartItem[]; 
   totalAmount: number;
   status: string;
 }
@@ -44,7 +44,6 @@ function OrderConfirmationContent() {
           const storedOrders = JSON.parse(storedOrdersRaw);
           let currentOrder = storedOrders.find((o: Order) => o.id === orderId);
           
-          // Attempt to sanitize product IDs in items if they are strings
           if (currentOrder && currentOrder.items) {
             currentOrder.items = currentOrder.items.map((item: CartItem) => ({
               ...item,
@@ -76,7 +75,7 @@ function OrderConfirmationContent() {
         <h1 className="text-2xl font-semibold text-destructive">Order Not Found</h1>
         <p className="mt-2 text-muted-foreground">We couldn't find details for this order. It might have been cleared or there was an issue.</p>
         <Button asChild className="mt-6">
-          <Link href="/">Continue Shopping</Link>
+          <Link href="/dashboard">Continue Shopping</Link>
         </Button>
       </div>
     );
@@ -140,7 +139,7 @@ function OrderConfirmationContent() {
           </p>
 
           <Button asChild className="w-full mt-6" size="lg">
-            <Link href="/">
+            <Link href="/dashboard">
               <Package className="mr-2 h-5 w-5" /> Continue Shopping
             </Link>
           </Button>

@@ -20,7 +20,7 @@ export default function CartPage() {
           Looks like you haven't added any vegetables yet.
         </p>
         <Button asChild className="mt-8">
-          <Link href="/">Start Shopping</Link>
+          <Link href="/dashboard">Start Shopping</Link>
         </Button>
       </div>
     );

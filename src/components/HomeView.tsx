@@ -1,13 +1,13 @@
 
-'use client'; // This directive MUST be at the top of the file
+'use client'; 
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import type { Product } from '@/lib/types';
+import type { Product, CategoryWithId } from '@/lib/types'; // Import CategoryWithId
 import ProductList from '@/components/ProductList';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search as SearchIcon, XCircle } from 'lucide-react'; // Added XCircle
+import { Search as SearchIcon, XCircle, ShoppingBag } from 'lucide-react'; 
 import {
   Select,
   SelectContent,
@@ -15,32 +15,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import Image from 'next/image';
+import Link from 'next/link';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface HomeViewProps {
   initialProducts: Product[];
-  initialCategories: string[];
+  initialCategories: CategoryWithId[]; // Updated to CategoryWithId[]
   initialSearchTerm: string;
-  initialCategory: string;
+  initialCategory: string; // This is the category *name* for the filter
 }
 
 export default function HomeView({ 
   initialProducts, 
   initialCategories,
   initialSearchTerm,
-  initialCategory
+  initialCategory // This is the active filter category *name*
 }: HomeViewProps) {
   const router = useRouter();
-  const searchParamsHook = useSearchParams(); // For reading current URL state
+  const searchParamsHook = useSearchParams(); 
 
-  // State for controlled inputs, initialized from server-passed props
   const [currentSearchTerm, setCurrentSearchTerm] = useState(initialSearchTerm);
-  const [currentCategory, setCurrentCategory] = useState(initialCategory);
+  const [currentCategoryName, setCurrentCategoryName] = useState(initialCategory); // Name of the active category
 
-  // Effect to update controlled input if URL changes externally (e.g. browser back/forward)
-  // or if the initial props change (e.g. due to re-keying)
   useEffect(() => {
     setCurrentSearchTerm(searchParamsHook.get('q') || initialSearchTerm || '');
-    setCurrentCategory(searchParamsHook.get('category') || initialCategory || 'All');
+    setCurrentCategoryName(searchParamsHook.get('category') || initialCategory || 'All');
   }, [searchParamsHook, initialSearchTerm, initialCategory]);
   
   const handleSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -51,40 +51,46 @@ export default function HomeView({
     } else {
       params.delete('q');
     }
-    // Navigate, which will cause HomePage (Server Component) to re-render
-    router.push(`/?${params.toString()}`);
+    router.push(`/dashboard?${params.toString()}`); // Ensure navigation stays within /dashboard
   };
 
   const handleCategoryChange = (newCategoryValue: string) => {
-    setCurrentCategory(newCategoryValue); // Update local state for controlled component
+    setCurrentCategoryName(newCategoryValue); 
     const params = new URLSearchParams(searchParamsHook.toString());
     if (newCategoryValue && newCategoryValue !== 'All') {
       params.set('category', newCategoryValue);
     } else {
       params.delete('category'); 
     }
-    router.push(`/?${params.toString()}`);
+    router.push(`/dashboard?${params.toString()}`); // Ensure navigation stays within /dashboard
   };
 
   const handleClearSearch = () => {
-    setCurrentSearchTerm(''); // Clear the input field state
+    setCurrentSearchTerm(''); 
     const params = new URLSearchParams(searchParamsHook.toString());
-    params.delete('q'); // Remove only the search query
-    router.push(`/?${params.toString()}`);
+    params.delete('q'); 
+    router.push(`/dashboard?${params.toString()}`); // Ensure navigation stays within /dashboard
   };
+
+  // Prepare categories for the dropdown, always including "All"
+  const displayCategories = [
+    { id: 'all-cat-key', name: 'All', imageUrl: '', dataAiHint: 'all categories' }, 
+    ...initialCategories.filter(cat => cat && cat.name && cat.name.toLowerCase() !== 'all') // Filter out any "All" from data and nulls
+  ];
   
   return (
     <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      {/* This is the main product browsing dashboard now */}
       <section className="mb-12 text-center">
         <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
-          Welcome to <span className="text-primary">VeggieDash</span>
+          Our Fresh <span className="text-primary">Vegetable Market</span>
         </h1>
         <p className="mt-6 max-w-2xl mx-auto text-lg leading-8 text-muted-foreground">
-          Discover the freshest vegetables, sourced locally and delivered to your doorstep. Healthy eating made easy!
+          Browse, search, and filter to find the perfect ingredients for your next meal.
         </p>
       </section>
 
-      <div className="mb-8 p-6 bg-card rounded-lg shadow">
+      <div className="mb-8 p-6 bg-card rounded-lg shadow-md">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
           <form onSubmit={handleSearchSubmit} className="md:col-span-2">
             <label htmlFor="search-input" className="block text-sm font-medium text-foreground mb-1">Search Vegetables</label>
@@ -96,6 +102,7 @@ export default function HomeView({
                 value={currentSearchTerm}
                 onChange={(e) => setCurrentSearchTerm(e.target.value)}
                 className="h-10 rounded-r-none focus:z-10"
+                aria-label="Search vegetables"
               />
               <Button type="submit" className="rounded-l-none h-10" aria-label="Search">
                 <SearchIcon className="h-5 w-5" />
@@ -105,13 +112,15 @@ export default function HomeView({
           
           <div>
             <label htmlFor="category-select" className="block text-sm font-medium text-foreground mb-1">Filter by Category</label>
-            <Select value={currentCategory} onValueChange={handleCategoryChange}>
-              <SelectTrigger id="category-select" className="w-full h-10">
+            <Select value={currentCategoryName} onValueChange={handleCategoryChange}>
+              <SelectTrigger id="category-select" className="w-full h-10" aria-label="Select category">
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
-                {initialCategories.map(cat => (
-                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                {displayCategories.map(cat => (
+                  <SelectItem key={cat.id || cat.name} value={cat.name}>
+                    {cat.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -130,7 +139,6 @@ export default function HomeView({
         )}
       </div>
       
-      {/* Products are passed from HomePage server component */}
       <ProductList products={initialProducts} isLoading={false} /> 
     </div>
   );

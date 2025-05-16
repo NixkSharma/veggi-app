@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { ShoppingCart, Search, Menu } from 'lucide-react';
+import { ShoppingCart, Search, Menu, LayoutDashboard } from 'lucide-react'; // Added LayoutDashboard
 import VeggieDashLogo from '@/components/VeggieDashLogo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,7 +22,7 @@ const Header = () => {
   
   const router = useRouter();
   const pathname = usePathname();
-  const currentSearchParams = useSearchParams(); // Hook to get current search params
+  const currentSearchParams = useSearchParams(); 
 
   const [searchTerm, setSearchTerm] = useState(currentSearchParams.get('q') || '');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -39,22 +39,20 @@ const Header = () => {
   }, [cartItems, isClient]);
 
   useEffect(() => {
-    // Update search term input if q param changes in URL
     setSearchTerm(currentSearchParams.get('q') || '');
   }, [currentSearchParams]);
 
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const targetPath = '/'; // Always search on the homepage
+    const targetPath = '/dashboard'; // Always search on the dashboard page
     
-    // Preserve existing query parameters (like category)
     const params = new URLSearchParams(currentSearchParams.toString());
     
     if (searchTerm.trim()) {
       params.set('q', searchTerm.trim());
     } else {
-      params.delete('q'); // Remove 'q' if search term is empty
+      params.delete('q'); 
     }
     
     router.push(`${targetPath}?${params.toString()}`);
@@ -65,10 +63,11 @@ const Header = () => {
   };
 
   const navLinks = [
-    { href: '/', label: 'Home' },
-    // { href: '/products', label: 'All Vegetables' }, // This page redirects to home
+    { href: '/', label: 'Home' }, // Landing page
+    { href: '/dashboard', label: 'Shop Vegetables' }, // Main product browsing
     { href: '/about', label: 'About Us' },
     { href: '/contact', label: 'Contact' },
+    { href: '/admin/dashboard', label: 'Admin'}, // Admin link
   ];
 
   return (
@@ -84,7 +83,10 @@ const Header = () => {
             <Link
               key={link.href}
               href={link.href}
-              className={`text-sm font-medium transition-colors hover:text-primary ${pathname === link.href ? 'text-primary' : 'text-muted-foreground'}`}
+              className={`text-sm font-medium transition-colors hover:text-primary ${
+                (pathname === link.href || (link.href === '/dashboard' && pathname.startsWith('/products'))) // Highlight "Shop" if on dashboard or product detail
+                ? 'text-primary' : 'text-muted-foreground'
+              }`}
             >
               {link.label}
             </Link>
@@ -148,7 +150,10 @@ const Header = () => {
                         key={link.href}
                         href={link.href}
                         onClick={() => setIsMobileMenuOpen(false)}
-                        className={`text-lg font-medium transition-colors hover:text-primary ${pathname === link.href ? 'text-primary' : 'text-foreground'}`}
+                        className={`text-lg font-medium transition-colors hover:text-primary ${
+                           (pathname === link.href || (link.href === '/dashboard' && pathname.startsWith('/products'))) 
+                           ? 'text-primary' : 'text-foreground'
+                        }`}
                       >
                         {link.label}
                       </Link>

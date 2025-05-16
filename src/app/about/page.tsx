@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Leaf, Users, Truck } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+
 
 export default function AboutPage() {
   return (
@@ -80,11 +82,11 @@ export default function AboutPage() {
         <p className="text-muted-foreground max-w-xl mx-auto mb-6">
           Experience the difference that truly fresh vegetables can make in your meals and your health.
         </p>
-        <Link href="/" legacyBehavior>
-          <a className="inline-flex items-center justify-center rounded-md bg-primary px-6 py-3 text-base font-medium text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors">
+        <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+          <Link href="/dashboard"> 
             Start Shopping Now
-          </a>
-        </Link>
+          </Link>
+        </Button>
       </section>
     </div>
   );
