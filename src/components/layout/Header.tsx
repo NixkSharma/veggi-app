@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { ShoppingCart, Search, Menu, User, Settings } from 'lucide-react'; // Added Settings for Seller link
+import { ShoppingCart, Search, Menu, User, Settings } from 'lucide-react';
 import VeggieDashLogo from '@/components/VeggieDashLogo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,7 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+import { SignedIn, SignedOut, UserButton, useUser } from "@clerk/nextjs";
 
 const Header = () => {
   const { cartItems } = useCart();
@@ -27,6 +27,9 @@ const Header = () => {
 
   const [searchTerm, setSearchTerm] = useState(currentSearchParams.get('q') || '');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const { isSignedIn, user } = useUser();
+  const [isSellerUser, setIsSellerUser] = useState(false);
 
   useEffect(() => {
     setIsClient(true); 
@@ -42,6 +45,29 @@ const Header = () => {
   useEffect(() => {
     setSearchTerm(currentSearchParams.get('q') || '');
   }, [currentSearchParams]);
+
+  useEffect(() => {
+    if (isSignedIn && user) {
+      const sellerPhoneNumber = process.env.NEXT_PUBLIC_SELLER_PHONE_NUMBER;
+      const sellerEmail = process.env.NEXT_PUBLIC_SELLER_EMAIL;
+
+      const primaryEmail = user.primaryEmailAddress?.emailAddress;
+      const primaryPhone = user.primaryPhoneNumber?.phoneNumber;
+      const emailAddresses = user.emailAddresses?.map(e => e.emailAddress) || [];
+      const phoneNumbers = user.phoneNumbers?.map(p => p.phoneNumber) || [];
+      
+      let isMatch = false;
+      if (sellerEmail && (primaryEmail === sellerEmail || emailAddresses.includes(sellerEmail))) {
+        isMatch = true;
+      }
+      if (!isMatch && sellerPhoneNumber && (primaryPhone === sellerPhoneNumber || phoneNumbers.includes(sellerPhoneNumber))) {
+        isMatch = true;
+      }
+      setIsSellerUser(isMatch);
+    } else {
+      setIsSellerUser(false);
+    }
+  }, [isSignedIn, user]);
 
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
@@ -92,14 +118,16 @@ const Header = () => {
             </Link>
           ))}
            <SignedIn>
-             <Link
-                href="/seller/dashboard"
-                className={`text-sm font-medium transition-colors hover:text-primary ${
-                    pathname.startsWith('/seller') ? 'text-primary' : 'text-muted-foreground'
-                }`}
-                >
-                Seller Area
-            </Link>
+             {isSellerUser && (
+                <Link
+                    href="/seller/dashboard"
+                    className={`text-sm font-medium transition-colors hover:text-primary ${
+                        pathname.startsWith('/seller') ? 'text-primary' : 'text-muted-foreground'
+                    }`}
+                    >
+                    Seller Area
+                </Link>
+             )}
           </SignedIn>
         </nav>
         
@@ -182,15 +210,17 @@ const Header = () => {
                       </Link>
                     ))}
                      <SignedIn>
-                        <Link
-                            href="/seller/dashboard"
-                            onClick={() => setIsMobileMenuOpen(false)}
-                            className={`block rounded-md px-3 py-2 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground ${
-                                pathname.startsWith('/seller') ? 'bg-accent text-accent-foreground' : 'text-foreground'
-                            }`}
-                            >
-                            <Settings className="mr-2 inline-block h-5 w-5" /> Seller Area
-                        </Link>
+                        {isSellerUser && (
+                            <Link
+                                href="/seller/dashboard"
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className={`block rounded-md px-3 py-2 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground ${
+                                    pathname.startsWith('/seller') ? 'bg-accent text-accent-foreground' : 'text-foreground'
+                                }`}
+                                >
+                                <Settings className="mr-2 inline-block h-5 w-5" /> Seller Area
+                            </Link>
+                        )}
                     </SignedIn>
                   </nav>
                   <div className="mt-auto pt-6 border-t">
