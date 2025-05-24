@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import { ShoppingCart, Search, Menu, User } from 'lucide-react'; // User icon for Sign In
+import { ShoppingCart, Search, Menu, User, Settings } from 'lucide-react'; // Added Settings for Seller link
 import VeggieDashLogo from '@/components/VeggieDashLogo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,10 +13,11 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+import { SignedIn, SignedOut, UserButton, useUser } from "@clerk/nextjs";
 
 const Header = () => {
   const { cartItems } = useCart();
+  const { user } = useUser(); // Hook to get user info including roles/metadata
   const [itemCount, setItemCount] = useState(0);
   const [isClient, setIsClient] = useState(false);
   
@@ -26,6 +27,11 @@ const Header = () => {
 
   const [searchTerm, setSearchTerm] = useState(currentSearchParams.get('q') || '');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // TODO: Define admin/seller role check. For now, we'll assume 'admin' role.
+  // This check would ideally come from Clerk's session claims (metadata or organization roles)
+  const isSeller = user?.publicMetadata?.role === 'admin' || user?.publicMetadata?.role === 'seller'; 
+
 
   useEffect(() => {
     setIsClient(true); 
@@ -45,6 +51,7 @@ const Header = () => {
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    // Searches should always target the main product browsing page, which is /dashboard
     const targetPath = '/dashboard'; 
     
     const params = new URLSearchParams(currentSearchParams.toString());
@@ -54,6 +61,9 @@ const Header = () => {
     } else {
       params.delete('q'); 
     }
+    // Remove category if search term is empty and current page is dashboard, or always if search is initiated from header
+    // For simplicity, header search might always reset category unless category is also part of header search UI
+    // params.delete('category'); 
     
     router.push(`${targetPath}?${params.toString()}`);
 
@@ -67,7 +77,6 @@ const Header = () => {
     { href: '/dashboard', label: 'Shop Vegetables' },
     { href: '/about', label: 'About Us' },
     { href: '/contact', label: 'Contact' },
-    // { href: '/admin/dashboard', label: 'Admin'}, // We can add this back when admin auth is distinct
   ];
 
   return (
@@ -91,6 +100,18 @@ const Header = () => {
               {link.label}
             </Link>
           ))}
+           <SignedIn>
+            {isSeller && (
+                 <Link
+                    href="/seller/dashboard"
+                    className={`text-sm font-medium transition-colors hover:text-primary ${
+                        pathname.startsWith('/seller') ? 'text-primary' : 'text-muted-foreground'
+                    }`}
+                    >
+                    Seller Area
+                </Link>
+            )}
+          </SignedIn>
         </nav>
         
         <div className="flex items-center space-x-2 sm:space-x-3">
@@ -100,7 +121,7 @@ const Header = () => {
                 placeholder="Search vegetables..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-9 pr-10 w-40 lg:w-56" // Adjusted width
+                className="h-9 pr-10 w-40 lg:w-56" 
               />
               <Button type="submit" variant="ghost" size="icon" className="absolute right-0 h-9 w-9" aria-label="Search">
                 <Search className="h-4 w-4" />
@@ -168,14 +189,27 @@ const Header = () => {
                         {link.label}
                       </Link>
                     ))}
+                     <SignedIn>
+                        {isSeller && (
+                            <Link
+                                href="/seller/dashboard"
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className={`block rounded-md px-3 py-2 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground ${
+                                    pathname.startsWith('/seller') ? 'bg-accent text-accent-foreground' : 'text-foreground'
+                                }`}
+                                >
+                                <Settings className="mr-2 inline-block h-5 w-5" /> Seller Area
+                            </Link>
+                        )}
+                    </SignedIn>
                   </nav>
                   <div className="mt-auto pt-6 border-t">
                     <SignedOut>
-                      <Button asChild className="w-full mb-2">
-                        <Link href="/sign-in" onClick={() => setIsMobileMenuOpen(false)}>Sign In</Link>
+                      <Button asChild className="w-full mb-2" onClick={() => setIsMobileMenuOpen(false)}>
+                        <Link href="/sign-in">Sign In</Link>
                       </Button>
-                      <Button asChild variant="outline" className="w-full">
-                        <Link href="/sign-up" onClick={() => setIsMobileMenuOpen(false)}>Sign Up</Link>
+                      <Button asChild variant="outline" className="w-full" onClick={() => setIsMobileMenuOpen(false)}>
+                        <Link href="/sign-up">Sign Up</Link>
                       </Button>
                     </SignedOut>
                   </div>

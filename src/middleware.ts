@@ -1,32 +1,35 @@
-
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 
+// Define routes that require authentication
 const isProtectedRoute = createRouteMatcher([
-  '/dashboard(.*)', // Protect the dashboard and its sub-routes
-  '/admin(.*)',     // Protect the admin section and its sub-routes
+  '/dashboard(.*)', // Protect the consumer dashboard and its sub-routes
+  '/seller(.*)',     // Protect the entire seller section
   '/cart(.*)',
   '/checkout(.*)',
   '/order-confirmation(.*)',
-  // Add any other routes that require authentication
+  // Add any other routes that require general user authentication
 ]);
 
 export default clerkMiddleware((auth, req) => {
   if (isProtectedRoute(req)) {
-    auth().protect(); // Protect the route if it matches the defined protected routes
+    auth().protect(); // Protect the route if it matches
   }
 }, {
+  // Routes that should be accessible to everyone, including unauthenticated users
   publicRoutes: [
-    "/", // Landing page is public
+    "/", // Landing page
     "/about", 
     "/contact",
-    "/sign-in(.*)", // Clerk's sign-in pages
-    "/sign-up(.*)", // Clerk's sign-up pages
-    // Add other public routes like product detail pages if they should be public:
-    // "/products/(.*)" 
+    "/products/(.*)", // Allow viewing product detail pages
+    // Clerk's own auth pages are handled by its routing, but explicit listing doesn't hurt
+    "/sign-in(.*)", 
+    "/sign-up(.*)",
+    // Other public utility routes if any
   ],
+  // Routes that Clerk should completely ignore (e.g., API routes handled elsewhere, static assets)
   ignoredRoutes: [
-    "/api/webhooks/clerk", // Clerk webhooks should be ignored by this middleware
-    // Add other specific API routes or static asset paths if needed
+    "/api/webhooks/clerk", // Clerk webhooks
+    // "/api/some_other_public_api_route"
   ],
 });
 
@@ -41,5 +44,8 @@ export const config = {
      * This ensures that the middleware runs on all relevant pages and API routes.
      */
     "/((?!_next/static|_next/image|favicon.ico|static).*)",
+    // Explicitly include API routes that might need to be checked by middleware,
+    // unless they are specifically ignored.
+    "/api/(.*)"
   ],
 };
