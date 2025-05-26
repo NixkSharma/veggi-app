@@ -1,262 +1,281 @@
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
 }
 
-// --- Enums ---
-enum Role {
-  customer
-  vendor
-  admin
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
 }
 
-enum UserStatus {
-  active
-  inactive
-  suspended
+enum UserRole {
+  CUSTOMER
+  ADMIN
 }
 
-enum OrderStatus {
-  pending
-  processing
-  shipped
-  delivered
-  cancelled
-}
-
-enum PaymentStatus {
-  pending
-  completed
-  failed
-}
-
-enum NotificationType {
-  order_update
-  stock_alert
-  system_message
-}
-
-enum AnalyticsType {
-  order
-  user
-  product
-}
-
-enum InventoryChangeType {
-  add
-  remove
-  update
-}
-
-// --- Models ---
 model User {
-  id            String     @id @default(uuid()) @db.Uuid
-  email         String     @unique
-  passwordHash  String     @map("password_hash")
-  role          Role
-  name          String
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime? @map("email_verified")
+  password      String?   // For Credentials provider
+  image         String?
+  role          UserRole  @default(CUSTOMER)
+  // Fields from original schema, can be used for user profile data
   phone         String?
-  address       String?    // General address, specific addresses in Address model
-  status        UserStatus @default(active)
-  createdAt     DateTime   @default(now()) @map("created_at")
-  updatedAt     DateTime   @updatedAt @map("updated_at")
+  address       String?
+  status        String?   @default("active") // e.g., active, inactive
 
-  products         Product[]        @relation("VendorProducts")
-  carts            Cart[]
-  ordersAsCustomer Order[]        @relation("CustomerOrders")
-  ordersAsVendor   Order[]        @relation("VendorOrders")
-  payments         Payment[]
-  notifications    Notification[]
-  addresses        Address[]
-  inventoryLogs    InventoryLog[]
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  @@index([role]) // As per SQL: CREATE INDEX idx_users_role ON users(role);
+  // NextAuth.js adapter relations
+  accounts      Account[]
+  sessions      Session[]
+  
+  // App-specific relations
+  cart          Cart?
+  orders        Order[]   @relation("UserOrders")
+  assignedOrders Order[]  @relation("VendorOrders") // For admin/seller if they "own" orders
+  notifications Notification[]
+  addresses     Address[]
+  inventoryLogs InventoryLog[]
+  products      Product[]      @relation("VendorProducts")// Products listed by this vendor/admin
+
   @@map("users")
 }
 
-model Category {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique
-  imageUrl  String?  @map("image_url")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+// NextAuth.js specific models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
 
-  products Product[]
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+// End NextAuth.js specific models
+
+model Category {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  imageUrl  String?   @map("image_url")
+  dataAiHint String?  @map("data_ai_hint")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  products  Product[]
 
   @@map("categories")
 }
 
-model Product {
-  id            Int      @id @default(autoincrement())
-  categoryId    Int?     @map("category_id")
-  name          String   @unique // Ensured this from previous fix for seeding
-  description   String?
-  price         Decimal  @db.Decimal(10, 2)
-  stock         Int      @default(0)
-  imageUrl      String?  @map("image_url")
-  dataAiHint    String?  @map("data_ai_hint") // Keep for app functionality
-  vendorId      String?  @map("vendor_id") @db.Uuid
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+enum ProductStatus {
+  ACTIVE
+  ARCHIVED
+}
 
-  category      Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  vendor        User?          @relation("VendorProducts", fields: [vendorId], references: [id], onDelete: SetNull)
-  cartItems     CartItem[]
-  orderItems    OrderItem[]
+model Product {
+  id          Int      @id @default(autoincrement())
+  categoryId  Int?     @map("category_id")
+  name        String   @unique
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  stock       Int      @default(0)
+  imageUrl    String?  @map("image_url")
+  dataAiHint  String?  @map("data_ai_hint")
+  vendorId    String?  @map("vendor_id") // Will store the admin's User.id (NextAuth user ID)
+  status      ProductStatus @default(ACTIVE)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  category   Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  vendor     User?        @relation("VendorProducts", fields: [vendorId], references: [id], onDelete: SetNull)
+  cartItems  CartItem[]
+  orderItems OrderItem[]
   inventoryLogs InventoryLog[]
 
-  @@index([categoryId], map: "idx_products_category_id")
-  @@index([vendorId], map: "idx_products_vendor_id")
+
+  @@index([categoryId])
+  @@index([vendorId])
   @@map("products")
 }
 
 model Cart {
-  id        Int      @id @default(autoincrement())
-  userId    String   @unique @map("user_id") @db.Uuid // UNIQUE constraint implies index
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
+  id        Int        @id @default(autoincrement())
+  userId    String     @unique @map("user_id") // NextAuth User ID
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  cartItems CartItem[]
+  items     CartItem[]
 
-  // SQL: CREATE INDEX idx_carts_user_id ON carts(user_id); (covered by @unique)
   @@map("carts")
 }
 
 model CartItem {
-  id         Int      @id @default(autoincrement())
-  cartId     Int      @map("cart_id")
-  productId  Int      @map("product_id")
-  quantity   Int      // CHECK (quantity > 0) to be handled by application logic
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id        Int      @id @default(autoincrement())
+  cartId    Int      @map("cart_id")
+  productId Int      @map("product_id")
+  quantity  Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  cart       Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  @@unique([cartId, productId]) // As per SQL: UNIQUE(cart_id, product_id)
-  @@index([cartId], map: "idx_cart_items_cart_id")
-  @@index([productId]) // Good practice to index foreign keys involved in joins
+  @@unique([cartId, productId])
   @@map("cart_items")
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
 }
 
 model Order {
   id              Int           @id @default(autoincrement())
-  userId          String?       @map("user_id") @db.Uuid
-  vendorId        String?       @map("vendor_id") @db.Uuid
+  userId          String?       @map("user_id") // NextAuth User ID of the customer
+  vendorId        String?       @map("vendor_id") // NextAuth User ID of the admin/seller
   customerName    String        @map("customer_name")
-  customerAddress String        @map("customer_address")
+  customerAddress String        @map("customer_address") @db.Text
   total           Decimal       @db.Decimal(10, 2)
-  status          OrderStatus   @default(pending)
-  paymentStatus   PaymentStatus @default(pending) @map("payment_status")
+  status          OrderStatus   @default(PENDING)
+  paymentStatus   PaymentStatus @default(PENDING) @map("payment_status")
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
 
-  customer   User?        @relation("CustomerOrders", fields: [userId], references: [id], onDelete: SetNull)
-  vendor     User?        @relation("VendorOrders", fields: [vendorId], references: [id], onDelete: SetNull)
-  orderItems OrderItem[]
-  payment    Payment?     // One-to-one relation with Payment
+  user         User?        @relation("UserOrders", fields: [userId], references: [id], onDelete: SetNull)
+  vendor       User?        @relation("VendorOrders", fields: [vendorId], references: [id], onDelete: SetNull)
+  items        OrderItem[]
+  payment      Payment?
 
-  @@index([userId], map: "idx_orders_user_id")
-  @@index([vendorId], map: "idx_orders_vendor_id")
+  @@index([userId])
+  @@index([vendorId])
   @@map("orders")
 }
 
 model OrderItem {
-  id         Int      @id @default(autoincrement())
-  orderId    Int      @map("order_id")
-  productId  Int?     @map("product_id")
-  quantity   Int      // CHECK (quantity > 0) to be handled by application logic
-  price      Decimal  @db.Decimal(10, 2) // Price at the time of order
-  createdAt  DateTime @default(now()) @map("created_at")
+  id        Int      @id @default(autoincrement())
+  orderId   Int      @map("order_id")
+  productId Int?     @map("product_id")
+  quantity  Int
+  price     Decimal  @db.Decimal(10, 2) // Price at the time of order
+  createdAt DateTime @default(now()) @map("created_at")
 
-  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product    Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
 
-  @@index([orderId], map: "idx_order_items_order_id")
-  @@index([productId]) // Good practice
+  @@index([orderId])
   @@map("order_items")
 }
 
 model Payment {
   id            Int           @id @default(autoincrement())
-  orderId       Int           @unique @map("order_id") // UNIQUE constraint implies index
-  userId        String?       @map("user_id") @db.Uuid
+  orderId       Int           @unique @map("order_id")
+  userId        String?       @map("user_id") // NextAuth User ID
   amount        Decimal       @db.Decimal(10, 2)
   transactionId String?       @map("transaction_id")
-  status        PaymentStatus @default(pending)
+  status        PaymentStatus @default(PENDING)
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")
 
-  order Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  user  User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  // SQL: CREATE INDEX idx_payments_order_id ON payments(order_id); (covered by @unique)
-  @@index([userId]) // Good practice if querying payments by user
   @@map("payments")
+}
+
+enum NotificationType {
+  ORDER_UPDATE
+  STOCK_ALERT
+  SYSTEM_MESSAGE
 }
 
 model Notification {
   id        Int              @id @default(autoincrement())
-  userId    String           @map("user_id") @db.Uuid
+  userId    String           @map("user_id") // NextAuth User ID
   type      NotificationType
-  message   String
+  message   String           @db.Text
   isRead    Boolean          @default(false) @map("is_read")
   createdAt DateTime         @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId], map: "idx_notifications_user_id")
+  @@index([userId])
   @@map("notifications")
 }
 
 model Address {
-  id            Int      @id @default(autoincrement())
-  userId        String   @map("user_id") @db.Uuid
-  addressLine   String   @map("address_line")
-  city          String
-  state         String
-  postalCode    String   @map("postal_code")
-  country       String
-  isDefault     Boolean  @default(false) @map("is_default")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id           Int     @id @default(autoincrement())
+  userId       String  @map("user_id") // NextAuth User ID
+  addressLine  String  @map("address_line") @db.Text
+  city         String
+  state        String
+  postalCode   String  @map("postal_code")
+  country      String
+  isDefault    Boolean @default(false) @map("is_default")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId], map: "idx_addresses_user_id")
+  @@index([userId])
   @@map("addresses")
 }
 
-model Analytics {
-  id        Int           @id @default(autoincrement())
-  type      AnalyticsType
-  data      Json          // Maps to JSONB
-  date      DateTime      @db.Date // Maps to DATE
-  createdAt DateTime      @default(now()) @map("created_at")
-
-  @@index([date], map: "idx_analytics_date")
-  @@map("analytics")
+enum InventoryLogChangeType {
+  ADD
+  REMOVE
+  UPDATE
 }
 
 model InventoryLog {
-  id             Int                 @id @default(autoincrement())
-  productId      Int?                @map("product_id")
-  vendorId       String?             @map("vendor_id") @db.Uuid
-  changeType     InventoryChangeType @map("change_type")
-  quantityChange Int                 @map("quantity_change")
-  reason         String?
-  createdAt      DateTime            @default(now()) @map("created_at")
+  id             Int      @id @default(autoincrement())
+  productId      Int?     @map("product_id")
+  vendorId       String?  @map("vendor_id") // NextAuth User ID of admin
+  changeType     InventoryLogChangeType @map("change_type")
+  quantityChange Int      @map("quantity_change")
+  reason         String?  @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
 
   product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
   vendor  User?    @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-
-  @@index([productId])
-  @@index([vendorId])
   @@map("inventory_logs")
 }
