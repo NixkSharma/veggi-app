@@ -5,10 +5,9 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import * as z from "zod";
-import { ProductStatus } from "@prisma/client"; // Import ProductStatus
-import { headers } from 'next/headers'; // For dynamic context in getAuth calls
-import { getServerSession } from "next-auth/next"; // For getting session in Server Actions
-import { authOptions } from "@/lib/authOptions";   // Your auth options
+import { Prisma } from '@prisma/client'; // Import Prisma for Decimal
+import { headers } from 'next/headers'; // For dynamic context in Server Actions
+import { getAuth } from "@clerk/nextjs/server"; // For Clerk auth in server actions
 
 // Zod schema for product form validation
 const productFormSchema = z.object({
@@ -17,16 +16,16 @@ const productFormSchema = z.object({
   price: z.coerce.number().min(0.01, "Price must be positive"),
   stock: z.coerce.number().int().min(0, "Stock cannot be negative"),
   imageUrl: z.string().url("Invalid URL format").optional().nullable(),
-  categoryId: z.coerce.number().int().positive("Category is required"),
+  categoryId: z.coerce.number({invalid_type_error: "Category is required"}).int().positive("Category is required"),
   dataAiHint: z.string().optional().nullable(),
 });
 
 export type ProductFormData = z.infer<typeof productFormSchema>;
 
-
 export async function addProductAction(authUserId: string, data: ProductFormData) {
-  // Authorization: Ensure user is admin - passed authUserId should be admin's
-  if (!authUserId || authUserId !== process.env.ADMIN_USER_ID) {
+  const adminUserIdEnv = process.env.ADMIN_USER_ID;
+
+  if (!authUserId || authUserId !== adminUserIdEnv) {
     return { success: false, message: "Unauthorized: Only admins can add products." };
   }
 
@@ -40,18 +39,18 @@ export async function addProductAction(authUserId: string, data: ProductFormData
     await prisma.product.create({
       data: {
         ...validatedData,
-        price: new Prisma.Decimal(validatedData.price), // Convert to Decimal
+        price: new Prisma.Decimal(validatedData.price),
         description: validatedData.description || null,
         imageUrl: validatedData.imageUrl || null,
         dataAiHint: validatedData.dataAiHint || (validatedData.name ? validatedData.name.toLowerCase().split(' ').slice(0,2).join(' ') : null),
         vendorId: authUserId, // Link product to the admin user
-        status: ProductStatus.ACTIVE, // New products are active by default
+        // No status field based on commit 2ebea387 schema
       },
     });
 
     revalidatePath("/seller/inventory");
-    revalidatePath("/dashboard");
-    // Don't redirect here, let the page handle it or return success
+    revalidatePath("/dashboard"); // Consumer dashboard
+    // No explicit redirect here; form page will handle it based on return
     return { success: true, message: "Product added successfully." };
 
   } catch (error) {
@@ -63,13 +62,13 @@ export async function addProductAction(authUserId: string, data: ProductFormData
     }
     return { success: false, message: "Failed to add product." };
   }
-  // No explicit redirect here; form page will handle it based on return
 }
 
 
 export async function updateProductAction(authUserId: string, productId: number, data: ProductFormData) {
- // Authorization
-  if (!authUserId || authUserId !== process.env.ADMIN_USER_ID) {
+  const adminUserIdEnv = process.env.ADMIN_USER_ID;
+
+  if (!authUserId || authUserId !== adminUserIdEnv) {
     return { success: false, message: "Unauthorized: Only admins can update products." };
   }
 
@@ -89,14 +88,13 @@ export async function updateProductAction(authUserId: string, productId: number,
         imageUrl: validatedData.imageUrl || null,
         dataAiHint: validatedData.dataAiHint || (validatedData.name ? validatedData.name.toLowerCase().split(' ').slice(0,2).join(' ') : null),
         // vendorId is not updated here, assuming it's fixed once set
-        // status is not updated here directly, use archiveProductAction for that
+        // No status field based on commit 2ebea387 schema
       },
     });
 
     revalidatePath("/seller/inventory");
     revalidatePath(`/products/${productId}`);
     revalidatePath("/dashboard");
-    // No explicit redirect here; form page will handle it based on return
     return { success: true, message: "Product updated successfully." };
 
   } catch (error) {
@@ -113,11 +111,15 @@ export async function updateProductAction(authUserId: string, productId: number,
   }
 }
 
-export async function archiveProductAction(authUserId: string, productId: number) {
-  // This action is now called with authUserId and productId pre-bound by the page server component
+// Renamed from archiveProductAction for clarity as it's a hard delete now
+export async function deleteProductAction(authUserId: string, productId: number) {
+  const adminUserIdEnv = process.env.ADMIN_USER_ID;
+  console.log("[deleteProductAction] Auth User ID:", authUserId, "Product ID:", productId, "Admin ID Env:", adminUserIdEnv);
 
-  if (!authUserId || authUserId !== process.env.ADMIN_USER_ID) {
-    return { success: false, message: "Unauthorized: Only admins can archive products." };
+
+  if (!authUserId || authUserId !== adminUserIdEnv) {
+    console.error("[deleteProductAction] Unauthorized attempt. Provided authUserId:", authUserId);
+    return { success: false, message: "Unauthorized: Only admins can delete products." };
   }
 
   if (!productId) {
@@ -130,22 +132,22 @@ export async function archiveProductAction(authUserId: string, productId: number
       return { success: false, message: "Product not found." };
     }
 
-    // Toggle status or just archive
-    const newStatus = product.status === ProductStatus.ACTIVE ? ProductStatus.ARCHIVED : ProductStatus.ACTIVE;
-
-    await prisma.product.update({
+    // Hard delete based on commit 2ebea387 (no status field)
+    await prisma.product.delete({
       where: { id: productId },
-      data: { status: newStatus },
     });
 
+    console.log(`[deleteProductAction] Product ${product.name} deleted successfully.`);
     revalidatePath("/seller/inventory");
-    revalidatePath(`/products/${productId}`);
-    revalidatePath("/dashboard"); // Revalidate consumer dashboard as product status changes
+    revalidatePath("/dashboard"); // Revalidate consumer dashboard as product is removed
 
-    return { success: true, message: `Product ${product.name} status updated to ${newStatus}.` };
+    return { success: true, message: `Product ${product.name} deleted successfully.` };
 
   } catch (error) {
-    console.error("Error archiving product:", error);
-    return { success: false, message: "Failed to archive product." };
+    console.error("[deleteProductAction] Error deleting product:", error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      return { success: false, message: "Product not found for deletion." };
+    }
+    return { success: false, message: "Failed to delete product." };
   }
 }

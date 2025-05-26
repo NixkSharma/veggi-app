@@ -1,33 +1,49 @@
 
 import { Suspense } from 'react';
-import { getProducts, GetProductsOptions } from '@/lib/products'; // Ensure GetProductsOptions is imported if used
+import { getProducts, GetProductsOptions } from '@/lib/products';
 import SellerProductList from '@/components/seller/SellerProductList';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { PlusCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { headers } from 'next/headers'; // For dynamic rendering context
-import { getAuth } from 'next-auth/react'; // Incorrect, use getServerSession
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/authOptions';
+import { getAuth } from '@clerk/nextjs/server';
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import type { Product } from '@/lib/types';
+import { deleteProductAction } from '@/actions/productActions'; // Changed from archiveProductAction
 
 export const dynamic = 'force-dynamic'; // Ensure page is dynamically rendered
 
+interface ProductForClient extends Product {
+  deleteAction: () => Promise<{ success: boolean; message: string }>;
+}
+
 async function InventoryData() {
-  headers(); // Opt-in to dynamic rendering for reliable getAuth/getServerSession
-  const session = await getServerSession(authOptions);
-  
-  if (!session || session.user?.role !== 'ADMIN') {
-    // This check might be redundant if middleware handles it, but good for safety.
-    // console.warn("InventoryData: Unauthorized access attempt. User:", session?.user);
-    redirect('/login?callbackUrl=/seller/inventory'); 
+  headers(); // Opt-in to dynamic rendering for reliable getAuth
+  const { userId: adminUserIdFromAuth } = getAuth();
+  const adminUserIdEnv = process.env.ADMIN_USER_ID;
+
+  if (!adminUserIdFromAuth || adminUserIdFromAuth !== adminUserIdEnv) {
+    console.warn("Unauthorized access attempt to /seller/inventory by user:", adminUserIdFromAuth);
+    redirect('/sign-in?redirect_url=/seller/inventory'); 
   }
 
-  // For admin view, fetch all products including archived ones
-  const products = await getProducts({ isAdminView: true });
+  // For admin view, fetch all products (no status filtering at 2ebea387)
+  const products = await getProducts(); // At commit 2ebea387, getProducts fetches all
+
+  const productsForClient: ProductForClient[] = products.map(product => {
+    const deleteActionForThisProduct = deleteProductAction.bind(
+      null,
+      adminUserIdFromAuth!, 
+      product.id    
+    );
+    return {
+      ...product,
+      deleteAction: deleteActionForThisProduct,
+    };
+  });
   
-  return <SellerProductList products={products} />;
+  return <SellerProductList products={productsForClient} />;
 }
 
 const SellerInventorySkeleton = () => (
@@ -46,8 +62,8 @@ const SellerInventorySkeleton = () => (
               <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Category</th>
               <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Price</th>
               <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Stock</th>
-              <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Status</th>
-              <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground w-[150px]">Actions</th>
+              {/* No Status column for 2ebea387 baseline */}
+              <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground w-[200px]">Actions</th>
             </tr>
           </thead>
           <tbody className="[&_tr:last-child]:border-0">
@@ -58,8 +74,8 @@ const SellerInventorySkeleton = () => (
                 <td className="p-4 align-middle"><Skeleton className="h-4 w-1/2" /></td>
                 <td className="p-4 align-middle"><Skeleton className="h-4 w-1/4" /></td>
                 <td className="p-4 align-middle"><Skeleton className="h-4 w-1/4" /></td>
-                <td className="p-4 align-middle"><Skeleton className="h-6 w-20" /></td>
-                <td className="p-4 align-middle"><div className="flex space-x-2"><Skeleton className="h-8 w-8" /><Skeleton className="h-8 w-8" /></div></td>
+                {/* No Status skeleton */}
+                <td className="p-4 align-middle"><div className="flex space-x-2"><Skeleton className="h-8 w-8" /><Skeleton className="h-8 w-8" /><Skeleton className="h-8 w-8" /></div></td>
               </tr>
             ))}
           </tbody>
@@ -68,7 +84,6 @@ const SellerInventorySkeleton = () => (
     </div>
   </div>
 );
-
 
 export default function SellerInventoryPage() {
   return (
