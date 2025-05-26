@@ -1,14 +1,14 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { DollarSign, ShoppingBag, Package, Users } from "lucide-react"; // Replaced BarChart with Package
+import { DollarSign, ShoppingBag, Package, Users } from "lucide-react";
 
 export default function SellerDashboardPage() {
   // Placeholder data - In a real app, this would come from backend/database
   const stats = [
-    { title: "Total Revenue (Placeholder)", value: "$0.00", icon: DollarSign, change: "Data coming soon" },
-    { title: "Total Orders (Placeholder)", value: "0", icon: ShoppingBag, change: "Data coming soon" },
-    { title: "Active Products (Placeholder)", value: "0", icon: Package, change: "Data coming soon" },
-    { title: "New Customers (Placeholder)", value: "0", icon: Users, change: "Data coming soon" },
+    { title: "Total Revenue", value: "$0.00", icon: DollarSign, change: "Data coming soon" },
+    { title: "Total Orders", value: "0", icon: ShoppingBag, change: "Data coming soon" },
+    { title: "Active Products", value: "0", icon: Package, change: "Data coming soon" },
+    { title: "New Customers", value: "0", icon: Users, change: "Data coming soon" },
   ];
 
   return (
@@ -36,7 +36,7 @@ export default function SellerDashboardPage() {
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle>Recent Orders (Placeholder)</CardTitle>
+            <CardTitle>Recent Orders</CardTitle>
             <CardDescription>Showing last 5 orders.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -45,7 +45,7 @@ export default function SellerDashboardPage() {
         </Card>
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle>Low Stock Items (Placeholder)</CardTitle>
+            <CardTitle>Low Stock Items</CardTitle>
              <CardDescription>Products needing attention.</CardDescription>
           </CardHeader>
           <CardContent>

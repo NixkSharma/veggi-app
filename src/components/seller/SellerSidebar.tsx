@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Package, ShoppingCart, Settings, LogOut } from 'lucide-react'; // Removed BarChart3
+import { Home, Package, ShoppingCart, User, LogOut } from 'lucide-react';
 import VeggieDashLogo from '@/components/VeggieDashLogo';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -13,14 +13,14 @@ const sidebarNavItems = [
   { href: '/seller/dashboard', label: 'Dashboard', icon: Home },
   { href: '/seller/inventory', label: 'Inventory', icon: Package },
   { href: '/seller/orders', label: 'Orders', icon: ShoppingCart },
-  { href: '/seller/profile', label: 'Profile', icon: Settings },
+  { href: '/seller/profile', label: 'Profile', icon: User },
 ];
 
 export default function SellerSidebar() {
   const pathname = usePathname();
 
   const handleSignOut = async () => {
-    await signOut({ callbackUrl: '/login' }); // Redirect to login after sign out
+    await signOut({ callbackUrl: '/login' }); 
   };
 
   return (

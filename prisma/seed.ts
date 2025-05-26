@@ -1,5 +1,6 @@
 
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient, Prisma, UserRole, ProductStatus } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -8,6 +9,34 @@ const placeholderImage = (width: number, height: number) => `https://placehold.c
 async function main() {
   console.log('Start seeding ...');
 
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (!adminEmail) {
+    console.error('ADMIN_EMAIL environment variable is not set. Skipping admin user seeding.');
+    // Optionally, throw an error if admin is critical for seeding other data
+    // throw new Error("ADMIN_EMAIL must be set in .env for seeding.");
+  }
+
+  let adminUser: Prisma.UserGetPayload<{}> | null = null;
+
+  if (adminEmail) {
+    const hashedPassword = await bcrypt.hash('password123', 10); // Default password for admin
+    adminUser = await prisma.user.upsert({
+      where: { email: adminEmail },
+      update: {
+        role: UserRole.ADMIN,
+      },
+      create: {
+        email: adminEmail,
+        name: 'Admin User',
+        passwordHash: hashedPassword,
+        role: UserRole.ADMIN,
+        emailVerified: new Date(), // Mark admin email as verified for simplicity
+      },
+    });
+    console.log(`Admin user ${adminUser.name} seeded/updated with role ADMIN.`);
+  }
+
+
   // Seed Categories
   const freshVeggies = await prisma.category.upsert({
     where: { name: 'Fresh Veggies' },
@@ -15,6 +44,7 @@ async function main() {
     create: {
       name: 'Fresh Veggies',
       imageUrl: placeholderImage(200,150),
+      dataAiHint: "fresh vegetables"
     },
   });
 
@@ -24,6 +54,7 @@ async function main() {
     create: {
       name: 'Leafy Greens',
       imageUrl: placeholderImage(200,150),
+      dataAiHint: "leafy greens salad"
     },
   });
 
@@ -33,22 +64,24 @@ async function main() {
     create: {
       name: 'Root Vegetables',
       imageUrl: placeholderImage(200,150),
+      dataAiHint: "root vegetables carrots"
     },
   });
 
-  const fruitsCategory = await prisma.category.upsert({ // Renamed to avoid conflict with 'Fruits' table if any
+  const fruitsCategory = await prisma.category.upsert({ 
     where: { name: 'Fruits' },
     update: {},
     create: {
       name: 'Fruits',
       imageUrl: placeholderImage(200,150),
+      dataAiHint: "assorted fruits"
     },
   });
   
   console.log('Categories seeded.');
 
   // Seed Products
-  const productsData: Prisma.ProductCreateInput[] = [
+  const productsData: Omit<Prisma.ProductCreateInput, 'vendor'>[] = [
     {
       name: 'Organic Potato',
       description: 'Fresh and starchy, perfect for roasting or mashing. Grown organically. 1kg pack.',
@@ -57,6 +90,7 @@ async function main() {
       imageUrl: placeholderImage(600,400),
       category: { connect: { id: freshVeggies.id } },
       dataAiHint: 'potato organic',
+      status: ProductStatus.ACTIVE,
     },
     {
       name: 'Red Onion',
@@ -66,6 +100,7 @@ async function main() {
       imageUrl: placeholderImage(600,400),
       category: { connect: { id: freshVeggies.id } },
       dataAiHint: 'red onion',
+      status: ProductStatus.ACTIVE,
     },
     {
       name: 'Sweet Carrots',
@@ -75,6 +110,7 @@ async function main() {
       imageUrl: placeholderImage(600,400),
       category: { connect: { id: rootVegetables.id } },
       dataAiHint: 'carrots bunch',
+      status: ProductStatus.ACTIVE,
     },
     {
       name: 'Fresh Spinach',
@@ -84,6 +120,7 @@ async function main() {
       imageUrl: placeholderImage(600,400),
       category: { connect: { id: leafyGreens.id } },
       dataAiHint: 'spinach leaves',
+      status: ProductStatus.ACTIVE,
     },
     {
       name: 'Vine Tomatoes',
@@ -91,8 +128,9 @@ async function main() {
       price: 3.10,
       stock: 90,
       imageUrl: placeholderImage(600,400),
-      category: { connect: { id: fruitsCategory.id } }, // Tomatoes are botanically fruits
+      category: { connect: { id: fruitsCategory.id } }, 
       dataAiHint: 'tomatoes vine',
+      status: ProductStatus.ACTIVE,
     },
     {
       name: 'Broccoli Florets',
@@ -102,6 +140,7 @@ async function main() {
       imageUrl: placeholderImage(600,400),
       category: { connect: { id: freshVeggies.id } },
       dataAiHint: 'broccoli florets',
+      status: ProductStatus.ACTIVE,
     },
     {
       name: 'Romaine Lettuce',
@@ -111,6 +150,7 @@ async function main() {
       imageUrl: placeholderImage(600,400),
       category: { connect: { id: leafyGreens.id } },
       dataAiHint: 'romaine lettuce',
+      status: ProductStatus.ACTIVE,
     },
     {
       name: 'Bell Pepper Trio',
@@ -120,6 +160,7 @@ async function main() {
       imageUrl: placeholderImage(600,400),
       category: { connect: { id: freshVeggies.id } },
       dataAiHint: 'bell peppers',
+      status: ProductStatus.ACTIVE,
     },
      {
       name: 'Cucumber',
@@ -129,6 +170,7 @@ async function main() {
       imageUrl: placeholderImage(600,400),
       category: { connect: { id: freshVeggies.id } },
       dataAiHint: 'cucumber fresh',
+      status: ProductStatus.ACTIVE,
     },
     {
       name: 'Zucchini',
@@ -138,14 +180,19 @@ async function main() {
       imageUrl: placeholderImage(600,400),
       category: { connect: { id: freshVeggies.id } },
       dataAiHint: 'zucchini green',
+      status: ProductStatus.ACTIVE,
     },
   ];
 
   for (const p of productsData) {
+    const productCreateData: Prisma.ProductCreateInput = {
+      ...p,
+      vendor: adminUser ? { connect: { id: adminUser.id } } : undefined,
+    };
     await prisma.product.upsert({
-      where: { name: p.name }, // Assuming product names are unique for upsert
-      update: p, // Update with new data if it exists
-      create: p,
+      where: { name: p.name }, 
+      update: productCreateData,
+      create: productCreateData,
     });
   }
   console.log('Products seeded.');

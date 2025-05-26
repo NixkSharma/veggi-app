@@ -1,8 +1,13 @@
 
-import type { ProductStatus as PrismaProductStatus, UserRole as PrismaUserRole } from '@prisma/client';
+import type { ProductStatus as PrismaProductStatus, UserRole as PrismaUserRole, OrderStatus as PrismaOrderStatus, PaymentStatus as PrismaPaymentStatus } from '@prisma/client';
+import type { Session as NextAuthSession, User as NextAuthUser } from 'next-auth';
+import type { JWT as NextAuthJWT } from 'next-auth/jwt';
+
 
 export type ProductStatus = PrismaProductStatus;
 export type UserRole = PrismaUserRole;
+export type OrderStatus = PrismaOrderStatus;
+export type PaymentStatus = PrismaPaymentStatus;
 
 
 export type Product = {
@@ -14,9 +19,9 @@ export type Product = {
   category: string; // Category name
   categoryId?: number | null; // Optional: for forms
   stock: number;
-  dataAiHint?: string;
-  status: ProductStatus; // Added for soft deletes
-  vendorId?: string | null; // Added to link product to a User (admin/seller)
+  dataAiHint?: string | null; // Added
+  status: ProductStatus;
+  vendorId?: string | null;
 };
 
 export type CartItem = {
@@ -28,30 +33,33 @@ export type CategoryWithId = {
   id: number;
   name: string;
   imageUrl: string | null;
-  dataAiHint?: string;
+  dataAiHint?: string | null; // Added
 };
 
-// For NextAuth session object augmentation
-// This helps TypeScript understand the custom properties we add to the session
-// Ensure this matches what's in authOptions.ts callbacks
-// declare module 'next-auth' {
-//   interface Session {
-//     user: {
-//       id: string;
-//       role: UserRole;
-//     } & DefaultSession['user'];
-//   }
-//   interface User { // This is the user object passed to JWT and session callbacks
-//     role: UserRole;
-//   }
-// }
+// Augment NextAuth types
+declare module 'next-auth' {
+  interface Session extends NextAuthSession {
+    user: {
+      id: string;
+      role: UserRole;
+      // include other properties you want on session.user
+    } & NextAuthSession['user']; // Keep existing User properties
+  }
 
-// declare module 'next-auth/jwt' {
-//   interface JWT {
-//     id: string;
-//     role: UserRole;
-//   }
-// }
+  interface User extends NextAuthUser {
+    // Add custom properties to the User object returned by the authorize callback
+    // and used in JWT and session callbacks
+    role: UserRole;
+  }
+}
+
+declare module 'next-auth/jwt' {
+  interface JWT extends NextAuthJWT {
+    // Add custom properties to the JWT
+    id: string;
+    role: UserRole;
+  }
+}
 
 
 // Used for product form data
@@ -63,10 +71,16 @@ export interface ProductFormData {
   imageUrl?: string | null;
   categoryId: number;
   dataAiHint?: string | null;
-  status?: ProductStatus; // Optional, defaults to ACTIVE on creation
+  status?: ProductStatus; 
 }
 
-// Options for fetching products
 export interface GetProductsOptions {
   isAdminView?: boolean;
+}
+
+// For auth registration form
+export interface RegisterFormData {
+  name: string;
+  email: string;
+  passwordHash: string; // This will be the hashed password
 }

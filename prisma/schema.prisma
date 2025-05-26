@@ -1,11 +1,12 @@
-
 generator client {
   provider        = "prisma-client-js"
+  previewFeatures = ["views"] // Add other preview features if needed
 }
 
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
+  // directUrl = env("DIRECT_URL") // Only if using connection pooling and need a direct URL for migrations
 }
 
 enum UserRole {
@@ -17,35 +18,32 @@ model User {
   id            String    @id @default(cuid())
   name          String?
   email         String?   @unique
-  emailVerified DateTime? @map("email_verified")
-  password      String?   // For Credentials provider
+  emailVerified DateTime?
+  passwordHash  String? // For Credentials provider
   image         String?
   role          UserRole  @default(CUSTOMER)
-  // Fields from original schema, can be used for user profile data
-  phone         String?
-  address       String?
-  status        String?   @default("active") // e.g., active, inactive
-
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  // NextAuth.js adapter relations
+  // Optional fields from your original schema if needed for other purposes
+  phone         String?
+  address       String? // Consider normalizing address to a separate Address model if complex
+  status        String?   @default("active") // From your original schema, consider if still needed or use UserRole
+
   accounts      Account[]
   sessions      Session[]
-  
-  // App-specific relations
-  cart          Cart?
-  orders        Order[]   @relation("UserOrders")
-  assignedOrders Order[]  @relation("VendorOrders") // For admin/seller if they "own" orders
+  carts         Cart[]
+  orders        Order[]   @relation("CustomerOrders") // Orders placed by this user
+  assignedOrders Order[]   @relation("VendorOrders") // Orders assigned to this user if they are a vendor
+  payments      Payment[]
   notifications Notification[]
-  addresses     Address[]
+  addresses     Address[] // User's saved addresses
+  products      Product[] @relation("VendorProducts") // Products listed by this user if they are a vendor
   inventoryLogs InventoryLog[]
-  products      Product[]      @relation("VendorProducts")// Products listed by this vendor/admin
 
   @@map("users")
 }
 
-// NextAuth.js specific models
 model Account {
   id                String  @id @default(cuid())
   userId            String  @map("user_id")
@@ -84,16 +82,16 @@ model VerificationToken {
   @@unique([identifier, token])
   @@map("verification_tokens")
 }
-// End NextAuth.js specific models
 
 model Category {
-  id        Int       @id @default(autoincrement())
-  name      String    @unique
-  imageUrl  String?   @map("image_url")
-  dataAiHint String?  @map("data_ai_hint")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  products  Product[]
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  imageUrl  String?  @map("image_url")
+  dataAiHint String? @map("data_ai_hint")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  products Product[]
 
   @@map("categories")
 }
@@ -106,23 +104,22 @@ enum ProductStatus {
 model Product {
   id          Int      @id @default(autoincrement())
   categoryId  Int?     @map("category_id")
-  name        String   @unique
+  name        String   @unique // Assuming product names should be unique
   description String?
   price       Decimal  @db.Decimal(10, 2)
   stock       Int      @default(0)
   imageUrl    String?  @map("image_url")
   dataAiHint  String?  @map("data_ai_hint")
-  vendorId    String?  @map("vendor_id") // Will store the admin's User.id (NextAuth user ID)
+  vendorId    String?  @map("vendor_id") // This will store the admin's User ID (which is a string/cuid)
   status      ProductStatus @default(ACTIVE)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  category   Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  vendor     User?        @relation("VendorProducts", fields: [vendorId], references: [id], onDelete: SetNull)
-  cartItems  CartItem[]
-  orderItems OrderItem[]
+  category      Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  vendor        User?         @relation("VendorProducts", fields: [vendorId], references: [id], onDelete: SetNull)
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
   inventoryLogs InventoryLog[]
-
 
   @@index([categoryId])
   @@index([vendorId])
@@ -130,12 +127,13 @@ model Product {
 }
 
 model Cart {
-  id        Int        @id @default(autoincrement())
-  userId    String     @unique @map("user_id") // NextAuth User ID
-  createdAt DateTime   @default(now()) @map("created_at")
-  updatedAt DateTime   @updatedAt @map("updated_at")
+  id        Int      @id @default(autoincrement())
+  userId    String   @unique @map("user_id") // One cart per user
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items     CartItem[]
+  cartItems CartItem[]
 
   @@map("carts")
 }
@@ -147,6 +145,7 @@ model CartItem {
   quantity  Int
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+
 
   cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -171,20 +170,20 @@ enum PaymentStatus {
 
 model Order {
   id              Int           @id @default(autoincrement())
-  userId          String?       @map("user_id") // NextAuth User ID of the customer
-  vendorId        String?       @map("vendor_id") // NextAuth User ID of the admin/seller
+  userId          String?       @map("user_id") // Customer who placed the order
+  vendorId        String?       @map("vendor_id") // Vendor assigned to fulfill (can be null if system fulfills or for future)
   customerName    String        @map("customer_name")
-  customerAddress String        @map("customer_address") @db.Text
+  customerAddress String        @map("customer_address")
   total           Decimal       @db.Decimal(10, 2)
   status          OrderStatus   @default(PENDING)
   paymentStatus   PaymentStatus @default(PENDING) @map("payment_status")
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
 
-  user         User?        @relation("UserOrders", fields: [userId], references: [id], onDelete: SetNull)
-  vendor       User?        @relation("VendorOrders", fields: [vendorId], references: [id], onDelete: SetNull)
-  items        OrderItem[]
-  payment      Payment?
+  user       User?        @relation("CustomerOrders", fields: [userId], references: [id], onDelete: SetNull)
+  vendor     User?        @relation("VendorOrders", fields: [vendorId], references: [id], onDelete: SetNull) // For admin/seller fulfilment
+  orderItems OrderItem[]
+  payment    Payment?
 
   @@index([userId])
   @@index([vendorId])
@@ -200,16 +199,15 @@ model OrderItem {
   createdAt DateTime @default(now()) @map("created_at")
 
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull) // Product might be deleted later
 
-  @@index([orderId])
   @@map("order_items")
 }
 
 model Payment {
   id            Int           @id @default(autoincrement())
   orderId       Int           @unique @map("order_id")
-  userId        String?       @map("user_id") // NextAuth User ID
+  userId        String?       @map("user_id")
   amount        Decimal       @db.Decimal(10, 2)
   transactionId String?       @map("transaction_id")
   status        PaymentStatus @default(PENDING)
@@ -230,34 +228,47 @@ enum NotificationType {
 
 model Notification {
   id        Int              @id @default(autoincrement())
-  userId    String           @map("user_id") // NextAuth User ID
+  userId    String           @map("user_id")
   type      NotificationType
-  message   String           @db.Text
+  message   String
   isRead    Boolean          @default(false) @map("is_read")
   createdAt DateTime         @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
   @@map("notifications")
 }
 
 model Address {
-  id           Int     @id @default(autoincrement())
-  userId       String  @map("user_id") // NextAuth User ID
-  addressLine  String  @map("address_line") @db.Text
+  id           Int      @id @default(autoincrement())
+  userId       String   @map("user_id")
+  addressLine  String   @map("address_line")
   city         String
   state        String
-  postalCode   String  @map("postal_code")
+  postalCode   String   @map("postal_code")
   country      String
-  isDefault    Boolean @default(false) @map("is_default")
+  isDefault    Boolean  @default(false) @map("is_default")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
   @@map("addresses")
+}
+
+// Analytics and InventoryLogs might be too complex for initial setup with NextAuth.js
+// but keeping them as per your original SQL schema for completeness
+// If they are not immediately used, they don't harm.
+
+model Analytics {
+  id        Int      @id @default(autoincrement())
+  type      String // Consider an enum if types are fixed: ANALYTICS_ORDER, ANALYTICS_USER, ANALYTICS_PRODUCT
+  data      Json
+  date      DateTime @db.Date
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([date])
+  @@map("analytics")
 }
 
 enum InventoryLogChangeType {
@@ -267,15 +278,16 @@ enum InventoryLogChangeType {
 }
 
 model InventoryLog {
-  id             Int      @id @default(autoincrement())
-  productId      Int?     @map("product_id")
-  vendorId       String?  @map("vendor_id") // NextAuth User ID of admin
+  id             Int                    @id @default(autoincrement())
+  productId      Int?                   @map("product_id")
+  vendorId       String?                @map("vendor_id") // Admin's User ID
   changeType     InventoryLogChangeType @map("change_type")
-  quantityChange Int      @map("quantity_change")
-  reason         String?  @db.Text
-  createdAt      DateTime @default(now()) @map("created_at")
+  quantityChange Int                    @map("quantity_change")
+  reason         String?
+  createdAt      DateTime               @default(now()) @map("created_at")
 
   product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
   vendor  User?    @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+
   @@map("inventory_logs")
 }

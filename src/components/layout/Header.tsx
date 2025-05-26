@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { ShoppingCart, Search, Menu, LayoutDashboard } from 'lucide-react'; // Added LayoutDashboard
+import { ShoppingCart, Search, Menu, User, LogOut, Settings } from 'lucide-react';
 import VeggieDashLogo from '@/components/VeggieDashLogo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,8 +14,20 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { useSession, signOut } from 'next-auth/react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
 
 const Header = () => {
+  const { data: session, status } = useSession();
   const { cartItems } = useCart();
   const [itemCount, setItemCount] = useState(0);
   const [isClient, setIsClient] = useState(false);
@@ -45,7 +57,7 @@ const Header = () => {
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const targetPath = '/dashboard'; // Always search on the dashboard page
+    const targetPath = '/dashboard'; 
     
     const params = new URLSearchParams(currentSearchParams.toString());
     
@@ -63,12 +75,14 @@ const Header = () => {
   };
 
   const navLinks = [
-    { href: '/', label: 'Home' }, // Landing page
-    { href: '/dashboard', label: 'Shop Vegetables' }, // Main product browsing
+    { href: '/', label: 'Home' },
+    { href: '/dashboard', label: 'Shop Vegetables' },
     { href: '/about', label: 'About Us' },
     { href: '/contact', label: 'Contact' },
-    { href: '/admin/dashboard', label: 'Admin'}, // Admin link
   ];
+
+  const isAdmin = session?.user?.role === 'ADMIN';
+  const userInitial = session?.user?.name ? session.user.name.charAt(0).toUpperCase() : (session?.user?.email ? session.user.email.charAt(0).toUpperCase() : 'U');
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -84,13 +98,23 @@ const Header = () => {
               key={link.href}
               href={link.href}
               className={`text-sm font-medium transition-colors hover:text-primary ${
-                (pathname === link.href || (link.href === '/dashboard' && pathname.startsWith('/products'))) // Highlight "Shop" if on dashboard or product detail
+                (pathname === link.href || (link.href === '/dashboard' && pathname.startsWith('/products'))) 
                 ? 'text-primary' : 'text-muted-foreground'
               }`}
             >
               {link.label}
             </Link>
           ))}
+          {isAdmin && (
+            <Link
+              href="/seller/dashboard"
+              className={`text-sm font-medium transition-colors hover:text-primary ${
+                pathname.startsWith('/seller') ? 'text-primary' : 'text-muted-foreground'
+              }`}
+            >
+              Seller Area
+            </Link>
+          )}
         </nav>
         
         <div className="flex items-center space-x-2 sm:space-x-4">
@@ -117,6 +141,63 @@ const Header = () => {
               )}
             </Button>
           </Link>
+
+          {status === "loading" && (
+             <Skeleton className="h-8 w-8 rounded-full" />
+          )}
+          {status === "unauthenticated" && (
+            <>
+              <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex">
+                <Link href="/login">Sign In</Link>
+              </Button>
+              <Button size="sm" asChild className="hidden sm:inline-flex bg-primary hover:bg-primary/90 text-primary-foreground">
+                <Link href="/register">Register</Link>
+              </Button>
+            </>
+          )}
+          {status === "authenticated" && session.user && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                  <Avatar className="h-9 w-9">
+                    <AvatarImage src={session.user.image ?? undefined} alt={session.user.name ?? session.user.email ?? 'User'} />
+                    <AvatarFallback>{userInitial}</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{session.user.name ?? 'User'}</p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {session.user.email}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/profile"> {/* Placeholder for user profile */}
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Profile</span>
+                  </Link>
+                </DropdownMenuItem>
+                {isAdmin && (
+                   <DropdownMenuItem asChild>
+                     <Link href="/seller/dashboard">
+                       <Settings className="mr-2 h-4 w-4" />
+                       <span>Seller Dashboard</span>
+                     </Link>
+                   </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => signOut({ callbackUrl: '/' })}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
 
           {/* Mobile Navigation Trigger */}
           <div className="md:hidden">
@@ -158,7 +239,35 @@ const Header = () => {
                         {link.label}
                       </Link>
                     ))}
+                     {status === "authenticated" && isAdmin && (
+                        <Link
+                          href="/seller/dashboard"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                           className={`text-lg font-medium transition-colors hover:text-primary ${
+                            pathname.startsWith('/seller') ? 'text-primary' : 'text-foreground'
+                          }`}
+                        >
+                          Seller Area
+                        </Link>
+                      )}
                   </nav>
+                  <div className="mt-auto flex flex-col space-y-2">
+                  {status === "unauthenticated" && (
+                    <>
+                      <Button asChild variant="outline" onClick={() => setIsMobileMenuOpen(false)}>
+                        <Link href="/login">Sign In</Link>
+                      </Button>
+                      <Button asChild onClick={() => setIsMobileMenuOpen(false)} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                        <Link href="/register">Register</Link>
+                      </Button>
+                    </>
+                  )}
+                   {status === "authenticated" && (
+                     <Button variant="outline" onClick={() => {signOut({ callbackUrl: '/' }); setIsMobileMenuOpen(false);}}>
+                        <LogOut className="mr-2 h-4 w-4" /> Sign Out
+                      </Button>
+                   )}
+                  </div>
                 </div>
               </SheetContent>
             </Sheet>
