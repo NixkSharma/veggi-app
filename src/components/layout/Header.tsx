@@ -14,7 +14,7 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { useSession, signOut } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react'; // Changed from Clerk
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,10 +24,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-
+import { Skeleton } from "@/components/ui/skeleton"; // Added this import
 
 const Header = () => {
-  const { data: session, status } = useSession();
+  const { data: session, status } = useSession(); // Using NextAuth's useSession
   const { cartItems } = useCart();
   const [itemCount, setItemCount] = useState(0);
   const [isClient, setIsClient] = useState(false);
@@ -38,6 +38,9 @@ const Header = () => {
 
   const [searchTerm, setSearchTerm] = useState(currentSearchParams.get('q') || '');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // For role-based "Seller Area" link visibility (client-side)
+  const [isSellerUser, setIsSellerUser] = useState(false);
 
   useEffect(() => {
     setIsClient(true); 
@@ -53,6 +56,15 @@ const Header = () => {
   useEffect(() => {
     setSearchTerm(currentSearchParams.get('q') || '');
   }, [currentSearchParams]);
+
+  // Client-side check for admin role for header link
+  useEffect(() => {
+    if (status === "authenticated" && session?.user?.role === 'ADMIN') {
+      setIsSellerUser(true);
+    } else {
+      setIsSellerUser(false);
+    }
+  }, [session, status]);
 
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
@@ -81,7 +93,6 @@ const Header = () => {
     { href: '/contact', label: 'Contact' },
   ];
 
-  const isAdmin = session?.user?.role === 'ADMIN';
   const userInitial = session?.user?.name ? session.user.name.charAt(0).toUpperCase() : (session?.user?.email ? session.user.email.charAt(0).toUpperCase() : 'U');
 
   return (
@@ -105,7 +116,7 @@ const Header = () => {
               {link.label}
             </Link>
           ))}
-          {isAdmin && (
+          {isSellerUser && ( // Changed from Clerk's sessionClaims to NextAuth's session.user.role
             <Link
               href="/seller/dashboard"
               className={`text-sm font-medium transition-colors hover:text-primary ${
@@ -155,7 +166,7 @@ const Header = () => {
               </Button>
             </>
           )}
-          {status === "authenticated" && session.user && (
+          {status === "authenticated" && session?.user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-9 w-9 rounded-full">
@@ -175,13 +186,14 @@ const Header = () => {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/dashboard/profile"> {/* Placeholder for user profile */}
+                {/* Placeholder for user profile link, adjust as needed */}
+                {/* <DropdownMenuItem asChild>
+                  <Link href="/profile"> 
                     <User className="mr-2 h-4 w-4" />
                     <span>Profile</span>
                   </Link>
-                </DropdownMenuItem>
-                {isAdmin && (
+                </DropdownMenuItem> */}
+                {isSellerUser && (
                    <DropdownMenuItem asChild>
                      <Link href="/seller/dashboard">
                        <Settings className="mr-2 h-4 w-4" />
@@ -239,7 +251,7 @@ const Header = () => {
                         {link.label}
                       </Link>
                     ))}
-                     {status === "authenticated" && isAdmin && (
+                     {status === "authenticated" && isSellerUser && (
                         <Link
                           href="/seller/dashboard"
                           onClick={() => setIsMobileMenuOpen(false)}
